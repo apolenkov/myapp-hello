@@ -1,0 +1,25 @@
+{
+  // Line length — relax for tables, code blocks, and badge URLs
+  "MD013": {
+    "line_length": 120,
+    "tables": false,
+    "code_blocks": false,
+    "headings": false
+  },
+  // Allow emphasis used as heading style (e.g. "**Response — 200 OK**")
+  "MD036": false,
+  // Allow mixed table column separators
+  "MD060": false,
+  // Allow duplicate headings in different sections
+  "MD024": false,
+  // Allow inline HTML (needed for prettier-ignore comments)
+  "MD033": false,
+  // First line doesn't need to be a heading
+  "MD041": false,
+  // Allow bare URLs in docs
+  "MD034": false,
+  // Allow missing blank lines around fences
+  "MD031": false,
+  // Allow fenced code blocks without language tag
+  "MD040": false
+}

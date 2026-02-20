@@ -1,0 +1,265 @@
+# API Reference
+
+## Base URLs
+
+| Environment | Base URL                                |
+| ----------- | --------------------------------------- |
+| Production  | `https://apolenkov.duckdns.org`         |
+| Staging     | `https://staging.apolenkov.duckdns.org` |
+| Dev         | `https://dev.apolenkov.duckdns.org`     |
+| Local       | `http://localhost:3001`                 |
+
+## Endpoints
+
+### GET /health
+
+Returns the current health status of the service. Used by Docker's `HEALTHCHECK` instruction and
+by Traefik/Dokploy monitoring.
+
+**Auth required:** No
+
+**Rate limited:** Yes (100 req/min per IP)
+
+**Response — 200 OK**
+
+```json
+{
+  "status": "ok",
+  "env": "production",
+  "app": "myapp-hello"
+}
+```
+
+| Field  | Type   | Description                                                  |
+| ------ | ------ | ------------------------------------------------------------ |
+| status | string | Always `"ok"` when the service is healthy                   |
+| env    | string | Value of `NODE_ENV` environment variable                     |
+| app    | string | Value of `APP_NAME` environment variable                     |
+
+**Example:**
+
+```bash
+curl https://apolenkov.duckdns.org/health
+```
+
+### GET /
+
+Returns a Hello World payload including the current database connection status.
+
+**Auth required:** No
+
+**Rate limited:** Yes (100 req/min per IP)
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Hello World!",
+  "env": "production",
+  "app": "myapp-hello",
+  "db": "connected",
+  "timestamp": "2026-02-20T10:00:00.000Z"
+}
+```
+
+| Field     | Type   | Description                                                            |
+| --------- | ------ | ---------------------------------------------------------------------- |
+| message   | string | Static greeting                                                        |
+| env       | string | Value of `NODE_ENV` environment variable                               |
+| app       | string | Value of `APP_NAME` environment variable                               |
+| db        | string | `"connected"`, `"error"`, or `"not configured"` (no `DATABASE_URL`)   |
+| timestamp | string | ISO 8601 timestamp of the response                                     |
+
+**Example:**
+
+```bash
+curl https://apolenkov.duckdns.org/
+```
+
+### GET /docs
+
+Serves the Swagger UI — an interactive HTML page for exploring and testing the API. The OpenAPI
+specification is generated automatically from `@openapi` JSDoc comments in route files.
+
+**Auth required:** No
+
+**Response:** HTML page (Content-Type: text/html)
+
+**Example:** Open `https://apolenkov.duckdns.org/docs` in a browser.
+
+### GET /openapi.json
+
+Returns the raw OpenAPI 3.0 specification as JSON. Useful for code generation or importing into
+API clients such as Insomnia or Postman.
+
+**Auth required:** No
+
+**Response — 200 OK** (Content-Type: application/json)
+
+```json
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "myapp-hello API",
+    "version": "1.0.0"
+  },
+  "servers": [{ "url": "https://apolenkov.duckdns.org" }],
+  "paths": { ... }
+}
+```
+
+**Example:**
+
+```bash
+curl https://apolenkov.duckdns.org/openapi.json | jq .info
+```
+
+## Authentication
+
+The application ships with a `requireAuth` middleware (`src/middleware/auth.ts`) that validates
+JSON Web Tokens. It is not applied to any built-in routes — it is intended to be attached to
+custom protected routes.
+
+### How It Works
+
+The middleware reads the `Authorization` header, strips the `Bearer` prefix, and calls
+`jwt.verify(token, JWT_SECRET)`. On success, the decoded payload is attached to the request object
+as `req.user`. On failure, a `401 Unauthorized` response is returned.
+
+### Applying to a Route
+
+```typescript
+import { requireAuth } from './middleware/auth'
+import { Router } from 'express'
+
+const router = Router()
+
+// This route requires a valid Bearer token
+router.get('/protected', requireAuth, (req, res) => {
+  res.json({ message: 'Authenticated', user: (req as any).user })
+})
+```
+
+### Obtaining a Token
+
+The built-in routes do not issue tokens. Implement a `/auth/login` route in your application that
+calls `jwt.sign(payload, process.env.JWT_SECRET)` and returns the token to the client.
+
+### Request Format
+
+```http
+GET /protected HTTP/1.1
+Authorization: Bearer <your-jwt-token>
+```
+
+### Error Responses
+
+| Status | Body                              | Cause                         |
+| ------ | --------------------------------- | ----------------------------- |
+| 401    | `{"error": "Unauthorized"}`       | Missing `Authorization` header |
+| 401    | `{"error": "Invalid token"}`      | Token expired, malformed, or signed with wrong secret |
+
+### Environment Variable
+
+| Variable     | Required | Description                                     |
+| ------------ | -------- | ----------------------------------------------- |
+| `JWT_SECRET` | Yes (for protected routes) | Signing secret — must match the secret used to issue tokens |
+
+If `JWT_SECRET` is an empty string, `jwt.verify` will reject all tokens. Set a strong, random
+value in production.
+
+## Rate Limiting
+
+All routes are protected by `express-rate-limit` (`src/middleware/rate-limiter.ts`).
+
+| Parameter       | Value             |
+| --------------- | ----------------- |
+| Window          | 60 seconds        |
+| Max requests    | 100 per IP        |
+| Response format | `{"error": "Too many requests, please try again later."}` |
+| Headers         | Standard (`RateLimit-*`) — legacy headers disabled |
+
+When the limit is exceeded, the server returns HTTP `429 Too Many Requests`.
+
+### Rate Limit Response Headers
+
+| Header                  | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `RateLimit-Limit`       | Maximum requests allowed in the window         |
+| `RateLimit-Remaining`   | Remaining requests in the current window       |
+| `RateLimit-Reset`       | Unix timestamp when the window resets          |
+
+**Note:** This is an application-level safety net. For production deployments, configure rate
+limiting at the Traefik level as well to protect against high-volume traffic before it reaches
+the Node.js process.
+
+## Request Flow
+
+<!-- prettier-ignore -->
+```mermaid
+%%{init: {theme: 'neutral'}}%%
+flowchart TD
+    client[Client] -->|HTTPS| traefik[Traefik\nTLS termination]
+    traefik -->|HTTP :3001| pino[pino-http\nRequest logger\nCorrelation ID assigned]
+    pino --> ratelimit[express-rate-limit\n100 req/min per IP]
+    ratelimit -->|429 if exceeded| client
+    ratelimit --> json[express.json\nBody parser]
+    json --> router{Route match}
+    router -->|GET /| handler_root[Root handler\nDB status check]
+    router -->|GET /health| handler_health[Health handler]
+    router -->|GET /docs| swagger[Swagger UI]
+    router -->|GET /openapi.json| openapi[OpenAPI spec]
+    router -->|protected route| auth[requireAuth\nJWT verification]
+    auth -->|401 if invalid| client
+    auth --> protected_handler[Protected handler]
+    handler_root --> pg[(PostgreSQL)]
+    handler_root --> response[JSON response]
+    handler_health --> response
+    protected_handler --> response
+    response --> client
+```
+
+## Error Responses
+
+All error responses follow a consistent JSON format:
+
+```json
+{
+  "error": "Human-readable error message"
+}
+```
+
+| Status | Meaning                                               |
+| ------ | ----------------------------------------------------- |
+| 401    | Missing or invalid JWT token on a protected route     |
+| 429    | Rate limit exceeded                                   |
+| 500    | Unhandled server error (logged at `error` level by pino) |
+
+## Logging
+
+All requests are logged in structured JSON format by `pino-http`. Each request receives a unique
+UUID as a correlation ID (`reqId`), allowing distributed tracing across log lines.
+
+Log level for each response is determined by the HTTP status code:
+
+- Status `< 500` → `info`
+- Status `>= 500` → `error`
+
+Log output example (development):
+
+```json
+{
+  "level": "info",
+  "time": 1708425600000,
+  "reqId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "req": { "method": "GET", "url": "/health" },
+  "res": { "statusCode": 200 },
+  "responseTime": 3
+}
+```
+
+## See Also
+
+- [Architecture](architecture.md) — Component diagram showing the middleware chain
+- [Development Guide](development.md) — Running the API locally
+- [Deployment Guide](deployment.md) — Environment URLs and CI/CD
