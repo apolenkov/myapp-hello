@@ -1,0 +1,5 @@
+# Encrypt with: ansible-vault encrypt vars/vault.yml
+# Usage: ansible-playbook site.yml --ask-vault-pass
+r2_access_key_id: 'REPLACE_WITH_ACTUAL_KEY'
+r2_secret_access_key: 'REPLACE_WITH_ACTUAL_SECRET'
+cf_account_id: 'REPLACE_WITH_CF_ACCOUNT_ID'

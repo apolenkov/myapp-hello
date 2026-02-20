@@ -1,0 +1,14 @@
+- name: Install rclone
+  hosts: vps
+  tasks:
+    - name: Install rclone via apt
+      apt:
+        name: rclone
+        state: present
+        update_cache: true
+
+    - name: Configure rclone R2
+      template:
+        src: ../templates/rclone.conf.j2
+        dest: /root/.config/rclone/rclone.conf
+        mode: '0600'
