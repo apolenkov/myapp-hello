@@ -11,6 +11,36 @@ env:
   DOKPLOY_TOKEN: ${{ secrets.DOKPLOY_TOKEN }}
 
 jobs:
+  # ── Quality Gates ──────────────────────────────────────────────────────
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: TypeScript strict check
+        run: npx tsc --noEmit
+
+      - name: Prettier check
+        run: npm run format:check
+
+      - name: YAML lint
+        run: pip install yamllint && yamllint .github/
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Architecture check
+        run: npm run check:arch
+
   # ── Test ──────────────────────────────────────────────────────────────
   test:
     name: Test
@@ -26,16 +56,23 @@ jobs:
 
       - run: npm ci
 
-      - run: npm test
+      - name: Run tests
+        run: npm test
 
-      - name: TypeScript check
-        run: npx tsc --noEmit
+      - name: Test coverage
+        run: npm run test:coverage
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   # ── Deploy ────────────────────────────────────────────────────────────
   deploy:
     name: Deploy → ${{ github.ref_name }}
     runs-on: ubuntu-latest
-    needs: test
+    needs: [quality, test]
     if: github.event_name == 'push'
 
     steps:
