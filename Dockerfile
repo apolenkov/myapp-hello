@@ -1,4 +1,4 @@
-# Stage 1: Build
+# ── Builder ────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
@@ -7,19 +7,24 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-# Stage 2: Production
-FROM node:22-alpine AS runner
+# ── Production ─────────────────────────────────────────────────────────────
+FROM node:22-alpine AS production
+RUN apk add --no-cache dumb-init
+
 WORKDIR /app
 
-ENV NODE_ENV=production
+# Non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+USER nodejs
 
-COPY package*.json ./
+COPY --chown=nodejs:nodejs package*.json ./
 RUN npm ci --omit=dev
-
-COPY --from=builder /app/dist ./dist
+COPY --chown=nodejs:nodejs --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
-USER node
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3001/health || exit 1
 
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/server.js"]
