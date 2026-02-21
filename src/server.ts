@@ -1,8 +1,12 @@
+// OTel SDK must initialize before express/pg for monkey-patching to work
+import { prometheusExporter } from './instrumentation'
+
 import express from 'express'
 import { Pool } from 'pg'
 
 import { runMigrations } from './db/migrate'
 import { httpLogger } from './middleware/logger'
+import { metricsMiddleware } from './middleware/metrics'
 import { apiLimiter } from './middleware/rate-limiter'
 import { setupSwagger } from './swagger'
 
@@ -19,12 +23,26 @@ const pool = process.env['DATABASE_URL']
 app.set('trust proxy', 1)
 
 // Middleware
+app.use(metricsMiddleware)
 app.use(httpLogger)
 app.use(apiLimiter)
 app.use(express.json())
 
 // Swagger docs
 setupSwagger(app)
+
+/**
+ * @openapi
+ * /metrics:
+ *   get:
+ *     summary: Prometheus metrics
+ *     responses:
+ *       200:
+ *         description: Prometheus text exposition format
+ */
+app.get('/metrics', (req, res) => {
+  prometheusExporter.getMetricsRequestHandler(req, res)
+})
 
 /**
  * @openapi

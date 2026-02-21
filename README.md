@@ -6,9 +6,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A production-ready Node.js REST API built with Express and PostgreSQL. Ships with structured
-logging, JWT authentication middleware, rate limiting, OpenAPI documentation, automated database
-migrations, and a full CI/CD pipeline deploying to three isolated environments on a Docker Swarm
-VPS via Dokploy.
+logging, OpenTelemetry instrumentation, JWT authentication middleware, rate limiting, OpenAPI
+documentation, automated database migrations, a full CI/CD pipeline, and a complete observability
+stack (Grafana + Prometheus + Loki + Tempo) — all deploying to three isolated environments on a
+Docker Swarm VPS via Dokploy.
 
 ## Architecture
 
@@ -29,6 +30,14 @@ flowchart TD
         prod --> pg_prod[(PostgreSQL prod)]
         staging --> pg_staging[(PostgreSQL staging)]
         devenv --> pg_dev[(PostgreSQL dev)]
+
+        subgraph obs[Observability Stack]
+            grafana[Grafana\n:3100]
+            prometheus[Prometheus] -->|scrape /metrics| prod
+            promtail[Promtail] -->|push logs| loki[Loki]
+            prod -->|OTLP traces| tempo[Tempo]
+        end
+        grafana --> prometheus & loki & tempo
     end
 
     traefik -->|ACME HTTP-01| letsencrypt[Let's Encrypt]
@@ -74,6 +83,7 @@ When `DATABASE_URL` is not set the app runs without a database and reports `db: 
 | ------ | --------------- | ---- | ------------------------------------- |
 | GET    | `/`             | None | Hello World response with DB status   |
 | GET    | `/health`       | None | Health check — returns `status: "ok"` |
+| GET    | `/metrics`      | None | Prometheus metrics (internal only)    |
 | GET    | `/docs`         | None | Swagger UI (OpenAPI 3.0)              |
 | GET    | `/openapi.json` | None | Raw OpenAPI specification             |
 
@@ -95,6 +105,7 @@ Each environment has its own PostgreSQL instance and independent configuration.
 - [Deployment](docs/deployment.md) — CI/CD pipeline, environments, rollback, secrets
 - [Development](docs/development.md) — Local setup, npm scripts, DB migrations, testing
 - [API Reference](docs/api.md) — Endpoints, authentication, rate limiting
+- [Observability](docs/observability.md) — Monitoring stack, dashboards, alerts, adding new services
 
 ## Tech Stack
 
@@ -105,6 +116,7 @@ Each environment has its own PostgreSQL instance and independent configuration.
 | Language          | TypeScript 5 (strict mode)                           |
 | Database          | PostgreSQL 16/17 via `node-postgres`                 |
 | Logging           | pino + pino-http (structured JSON)                   |
+| Observability     | OpenTelemetry + Prometheus + Loki + Tempo + Grafana  |
 | Auth middleware   | jsonwebtoken                                         |
 | Rate limiting     | express-rate-limit                                   |
 | API docs          | swagger-jsdoc + swagger-ui-express                   |

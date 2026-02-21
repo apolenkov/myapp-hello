@@ -52,10 +52,16 @@ System_Boundary(vps, "VPS — Docker Swarm") {
     ContainerDb(pg_prod, "PostgreSQL prod", "PostgreSQL 16", "Production database")
     ContainerDb(pg_staging, "PostgreSQL staging", "PostgreSQL 16", "Staging database")
     ContainerDb(pg_dev, "PostgreSQL dev", "PostgreSQL 16", "Dev database")
+    Container(grafana, "Grafana", "Grafana 11.5", "Dashboards, alerts, :3100")
+    Container(prometheus, "Prometheus", "Prometheus v3.2", "Metrics storage, scrape, 30d retention")
+    Container(loki, "Loki", "Grafana Loki 3.4", "Log aggregation, TSDB, 30d retention")
+    Container(tempo, "Tempo", "Grafana Tempo 2.7", "Distributed traces, OTLP receiver")
+    Container(promtail, "Promtail", "Grafana Promtail 3.4", "Docker log collector")
 }
 System_Ext(github, "GitHub Actions")
 Rel(user, traefik, "HTTPS", ":443")
 Rel(dev, dokploy_admin, "Manage deployments", "HTTP :3000")
+Rel(dev, grafana, "View dashboards", "HTTP :3100")
 Rel(github, dokploy_admin, "Trigger deploy", "REST /api/trpc/application.deploy")
 Rel(traefik, app_prod, "Route apolenkov.duckdns.org", "HTTP :3001")
 Rel(traefik, app_staging, "Route staging.*", "HTTP :3001")
@@ -63,6 +69,12 @@ Rel(traefik, app_dev, "Route dev.*", "HTTP :3001")
 Rel(app_prod, pg_prod, "SQL", "TCP :5432")
 Rel(app_staging, pg_staging, "SQL", "TCP :5432")
 Rel(app_dev, pg_dev, "SQL", "TCP :5432")
+Rel(prometheus, app_prod, "Scrape /metrics", "HTTP :3001")
+Rel(promtail, loki, "Push logs", "HTTP :3100")
+Rel(app_prod, tempo, "Send traces", "OTLP HTTP :4318")
+Rel(grafana, prometheus, "Query metrics", "HTTP :9090")
+Rel(grafana, loki, "Query logs", "HTTP :3100")
+Rel(grafana, tempo, "Query traces", "HTTP :3200")
 LAYOUT_WITH_LEGEND()
 @enduml
 ```
@@ -79,10 +91,12 @@ how the database migration system works, and how Swagger documentation is served
 title Component Diagram — myapp-hello internals
 Container_Boundary(app, "myapp-hello — Express App") {
     Component(server, "server.ts", "Express", "App bootstrap, middleware chain, graceful shutdown")
-    Component(router, "routes/index.ts", "Express Router", "GET /, GET /health, GET /docs")
+    Component(router, "routes/index.ts", "Express Router", "GET /, GET /health, GET /docs, GET /metrics")
     Component(auth_mw, "middleware/auth.ts", "JWT Middleware", "Verify Bearer token on protected routes")
     Component(rate_mw, "middleware/rate-limiter.ts", "express-rate-limit", "100 req/min per IP")
     Component(log_mw, "middleware/logger.ts", "pino", "Structured JSON logs + correlation IDs")
+    Component(metrics_mw, "middleware/metrics.ts", "OTel Middleware", "HTTP request duration + count")
+    Component(otel, "instrumentation.ts", "OpenTelemetry SDK", "Prometheus exporter, OTLP traces")
     Component(db, "db/index.ts", "node-postgres Pool", "Connection pool, query helper")
     Component(migrate, "db/migrate.ts", "node-postgres", "Run SQL migrations on startup (advisory lock)")
     Component(swagger, "swagger.ts", "swagger-ui-express", "OpenAPI 3.0 docs at /docs")
@@ -94,11 +108,17 @@ Rel(server, router, "Mount routes")
 Rel(server, auth_mw, "Use middleware")
 Rel(server, rate_mw, "Use middleware")
 Rel(server, log_mw, "Use middleware")
+Rel(server, metrics_mw, "Use middleware")
+Rel(server, otel, "Import first for monkey-patching")
 Rel(server, migrate, "await on startup")
 Rel(router, db, "Query")
 Rel(router, swagger, "Serve docs")
 Rel(db, postgres, "TCP :5432")
 Rel(migrate, postgres, "Run migrations")
+Rel(otel, prometheus_ext, "Serve /metrics", "HTTP")
+Rel(otel, tempo_ext, "Send traces", "OTLP HTTP :4318")
+Container(prometheus_ext, "Prometheus", "Scrapes /metrics")
+Container(tempo_ext, "Tempo", "Receives OTLP traces")
 LAYOUT_WITH_LEGEND()
 @enduml
 ```
@@ -131,6 +151,13 @@ Deployment_Node(vps, "VPS Ubuntu", "185.239.48.55") {
             ContainerInstance(pg_staging, "pg-staging", "postgres:16-alpine", "Volume: pg_staging_data")
             ContainerInstance(pg_dev, "pg-dev", "postgres:16-alpine", "Volume: pg_dev_data")
         }
+        Deployment_Node(obs_layer, "Observability Layer") {
+            ContainerInstance(grafana, "Grafana", "grafana:11.5.2", "Port: 3100, dashboards + alerts")
+            ContainerInstance(prometheus, "Prometheus", "prom/prometheus:v3.2.1", "30d retention, 1GB max")
+            ContainerInstance(loki, "Loki", "grafana/loki:3.4.2", "TSDB v13, 30d retention")
+            ContainerInstance(tempo, "Tempo", "grafana/tempo:2.7.1", "OTLP HTTP+gRPC, span-metrics")
+            ContainerInstance(promtail, "Promtail", "grafana/promtail:3.4.2", "Docker SD auto-discovery")
+        }
     }
 }
 Deployment_Node(ci, "GitHub", "github.com") {
@@ -139,6 +166,9 @@ Deployment_Node(ci, "GitHub", "github.com") {
 Rel(dns_record, traefik, "Resolves to")
 Rel(traefik, app_prod, "Route prod domain")
 Rel(actions, traefik, "Trigger deploy via Dokploy API")
+Rel(prometheus, app_prod, "Scrape /metrics")
+Rel(promtail, loki, "Push logs")
+Rel(app_prod, tempo, "OTLP traces")
 LAYOUT_WITH_LEGEND()
 @enduml
 ```
@@ -153,9 +183,11 @@ reach production.
 
 ### Migration Safety via Advisory Lock
 
-`db/migrate.ts` acquires a PostgreSQL advisory lock (`pg_advisory_lock(7777777)`) before running
-migrations. In a Docker Swarm deployment where multiple replicas can start simultaneously, only one
-instance applies pending migrations — the others wait until the lock is released.
+`db/migrate.ts` acquires a PostgreSQL transaction-scoped advisory lock
+(`pg_advisory_xact_lock(7777777)`) inside a single transaction before running migrations. The lock
+auto-releases on `COMMIT`/`ROLLBACK`, eliminating the risk of lock leaks if a migration fails. In a
+Docker Swarm deployment where multiple replicas can start simultaneously, only one instance applies
+pending migrations — the others wait until the lock is released.
 
 ### Non-Root Container
 
@@ -168,8 +200,17 @@ The server listens for `SIGTERM` and `SIGINT`. On shutdown it stops accepting ne
 waits for active connections to finish, drains the PostgreSQL connection pool, and exits cleanly.
 A 10-second hard timeout ensures the process eventually exits even if connections hang.
 
+### Observability via OpenTelemetry
+
+The application uses OpenTelemetry SDK for vendor-neutral instrumentation. `instrumentation.ts` must
+be imported before any other module to enable monkey-patching of `http`, `express`, and `pg`.
+Metrics are exposed via a Prometheus exporter at `/metrics`, and traces are sent to Tempo via OTLP.
+Promtail collects structured Pino logs from Docker and forwards them to Loki. All three signals
+(metrics, logs, traces) are correlated in Grafana via `traceId`.
+
 ## See Also
 
+- [Observability Guide](observability.md) — Stack overview, dashboards, alerts, adding new services
 - [Deployment Guide](deployment.md) — CI/CD pipeline and environment configuration
 - [Development Guide](development.md) — Local setup and migration workflow
 - [API Reference](api.md) — Endpoint documentation

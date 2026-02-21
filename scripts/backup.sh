@@ -31,13 +31,20 @@ done
 # 2. Dokploy config + DB
 cp -r /etc/dokploy "$TMP/configs/dokploy"
 
-# 3. Upload to R2 — use copy (NOT sync) to avoid accidental deletion
+# 3. Grafana persistent data (dashboards, annotations, preferences)
+if docker volume inspect observability_grafana_data >/dev/null 2>&1; then
+  mkdir -p "$TMP/grafana"
+  docker run --rm -v observability_grafana_data:/data -v "$TMP/grafana":/backup \
+    alpine tar czf /backup/grafana-data.tar.gz -C /data .
+fi
+
+# 4. Upload to R2 — use copy (NOT sync) to avoid accidental deletion
 rclone copy "$TMP" "r2:myapp-backups/${DATE}" --progress 2>>"$LOGFILE" || {
   alert "rclone upload failed for ${DATE}"
   exit 1
 }
 
-# 4. Prune backups older than 30 days
+# 5. Prune backups older than 30 days
 rclone delete r2:myapp-backups --min-age 30d 2>>"$LOGFILE" || true
 
 # Cleanup

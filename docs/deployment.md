@@ -146,6 +146,68 @@ If automatic renewal fails, force renewal by restarting the Traefik service on t
 docker service update --force traefik_traefik
 ```
 
+## Observability Stack Deployment
+
+The observability stack (Grafana, Prometheus, Loki, Tempo, Promtail) is deployed separately from
+the application using Ansible.
+
+### Initial Deploy
+
+```bash
+cd infra-ansible
+ansible-playbook playbooks/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
+```
+
+This copies all configs from `observability/` to `/opt/observability` on the VPS, creates a `.env`
+file with Grafana credentials from the Ansible vault, and starts all 5 services via Docker Compose.
+
+### Full Stack Deploy (Including Observability)
+
+```bash
+ansible-playbook playbooks/site.yml -i inventory/hosts.yml --ask-vault-pass
+```
+
+### Updating Configs
+
+After modifying any file in `observability/`, redeploy the stack:
+
+```bash
+ansible-playbook playbooks/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
+```
+
+The playbook uses `synchronize` with `delete: true`, so removed files on the local side will also
+be removed on the VPS. Grafana, Prometheus, and Loki will pick up config changes on restart.
+
+### Post-Deploy Verification
+
+The CI/CD pipeline includes two non-blocking post-deploy steps:
+
+1. **Verify /metrics endpoint** — checks that the application exposes Prometheus metrics
+2. **Create Grafana deploy annotation** — marks the deploy time on Grafana dashboards for
+   correlation with metrics/logs changes
+
+Both steps use `continue-on-error: true` and do not block the pipeline.
+
+### Ansible Vault Variables
+
+| Variable                 | Description                                           |
+| ------------------------ | ----------------------------------------------------- |
+| `grafana_admin_user`     | Grafana admin username (default: `admin`)             |
+| `grafana_admin_password` | Grafana admin password                                |
+| `grafana_root_url`       | Grafana public URL (default: `http://localhost:3100`) |
+
+### Access
+
+| Service    | URL                         | Access        |
+| ---------- | --------------------------- | ------------- |
+| Grafana    | `http://185.239.48.55:3100` | Admin login   |
+| Prometheus | `http://localhost:9090`     | Internal only |
+| Loki       | `http://localhost:3100`     | Internal only |
+| Tempo      | `http://localhost:3200`     | Internal only |
+
+For details on dashboards, alerts, and adding new services, see the
+[Observability Guide](observability.md).
+
 ## GitHub Secrets
 
 The following secrets must be configured in the repository before the pipeline can deploy:
@@ -158,6 +220,9 @@ The following secrets must be configured in the repository before the pipeline c
 | `DOKPLOY_SERVICE_ID_STAGING` | Dokploy application ID for the staging service           |
 | `DOKPLOY_SERVICE_ID_DEV`     | Dokploy application ID for the dev service               |
 | `CODECOV_TOKEN`              | Codecov upload token — obtain from codecov.io            |
+| `GRAFANA_API_TOKEN`          | Grafana API token for deploy annotations (optional)      |
+| `GRAFANA_URL`                | Grafana base URL for deploy annotations (optional)       |
+| `APP_PUBLIC_URL`             | Public app URL for post-deploy /metrics check (optional) |
 
 Set secrets via the GitHub web UI (**Settings > Secrets and variables > Actions**) or with the
 `gh` CLI:
@@ -174,5 +239,6 @@ gh secret set CODECOV_TOKEN --body "<codecov-token>"
 ## See Also
 
 - [Architecture](architecture.md) — Infrastructure diagrams
+- [Observability Guide](observability.md) — Monitoring stack, dashboards, alerts
 - [Development Guide](development.md) — Local setup and running tests
 - [API Reference](api.md) — Endpoint documentation
