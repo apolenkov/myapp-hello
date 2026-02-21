@@ -27,7 +27,7 @@
     "@opentelemetry/sdk-node": "^0.212.0",
     "@opentelemetry/semantic-conventions": "^1.39.0",
     "express": "^4.21.2",
-    "express-rate-limit": "^7.0.0",
+    "express-rate-limit": "^8.2.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.3",
     "pino": "^9.0.0",
