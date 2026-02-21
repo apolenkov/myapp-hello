@@ -4,3 +4,4 @@
 - import_playbook: 04-rclone.yml
 - import_playbook: 05-restore.yml
 - import_playbook: 06-smoke.yml
+- import_playbook: 07-observability.yml

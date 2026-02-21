@@ -96,3 +96,29 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"json\":{\"applicationId\":\"${{ steps.resolve.outputs.service_id }}\"}}"
           echo "Deploy triggered ✓"
+
+      - name: Verify /metrics endpoint
+        if: always()
+        continue-on-error: true
+        run: |
+          sleep 30
+          curl -sf "${{ secrets.APP_PUBLIC_URL }}/metrics" | head -5 \
+            && echo "Metrics endpoint OK" \
+            || echo "Metrics endpoint not reachable (non-blocking)"
+
+      - name: Create Grafana deploy annotation
+        if: always()
+        continue-on-error: true
+        env:
+          GRAFANA_API_TOKEN: ${{ secrets.GRAFANA_API_TOKEN }}
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+        run: |
+          if [ -n "$GRAFANA_URL" ] && [ -n "$GRAFANA_API_TOKEN" ]; then
+            curl -sf -X POST "$GRAFANA_URL/api/annotations" \
+              -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\":\"Deploy ${{ github.sha }} to ${{ steps.resolve.outputs.env }}\",\"tags\":[\"deploy\",\"${{ steps.resolve.outputs.env }}\"]}"
+            echo "Grafana annotation created"
+          else
+            echo "Grafana annotation skipped (secrets not configured)"
+          fi
