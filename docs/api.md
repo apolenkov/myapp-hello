@@ -75,6 +75,49 @@ Returns a Hello World payload including the current database connection status.
 curl https://apolenkov.duckdns.org/
 ```
 
+### GET /metrics
+
+Returns application metrics in Prometheus text exposition format. Used by the Prometheus server to
+scrape metrics. Includes OpenTelemetry default metrics (runtime, target info) and custom application
+metrics (HTTP request duration, request count).
+
+**Auth required:** No (should be blocked from external access via Traefik middleware)
+
+**Rate limited:** No (excluded from metrics recording to avoid self-scrape noise)
+
+**Response — 200 OK** (Content-Type: text/plain; version=0.0.4)
+
+```text
+# HELP http_server_request_duration_seconds Duration of HTTP requests
+# UNIT http_server_request_duration_seconds seconds
+# TYPE http_server_request_duration_seconds histogram
+http_server_request_duration_seconds_bucket{http_method="GET",http_route="/",http_status_code="200",le="0.005"} 1
+...
+# HELP http_server_request_total Total number of HTTP requests
+# TYPE http_server_request_total counter
+http_server_request_total_total{http_method="GET",http_route="/",http_status_code="200"} 1
+# HELP target_info Target metadata
+# TYPE target_info gauge
+target_info{service_name="myapp-hello",service_version="1.0.0"} 1
+```
+
+**Key metrics:**
+
+| Metric                                 | Type      | Labels                                          |
+| -------------------------------------- | --------- | ----------------------------------------------- |
+| `http_server_request_duration_seconds` | Histogram | `http_method`, `http_route`, `http_status_code` |
+| `http_server_request_total_total`      | Counter   | `http_method`, `http_route`, `http_status_code` |
+| `target_info`                          | Gauge     | `service_name`, `service_version`               |
+
+**Example:**
+
+```bash
+curl http://localhost:3001/metrics
+```
+
+**Note:** The `/metrics` endpoint is intended for internal use only. In production, Traefik should
+block external access to this path. See the [Observability Guide](observability.md) for details.
+
 ### GET /docs
 
 Serves the Swagger UI — an interactive HTML page for exploring and testing the API. The OpenAPI
@@ -199,13 +242,15 @@ the Node.js process.
 %%{init: {theme: 'neutral'}}%%
 flowchart TD
     client[Client] -->|HTTPS| traefik[Traefik\nTLS termination]
-    traefik -->|HTTP :3001| pino[pino-http\nRequest logger\nCorrelation ID assigned]
+    traefik -->|HTTP :3001| otel_mw[OTel metrics middleware\nDuration + count recording]
+    otel_mw --> pino[pino-http\nRequest logger\nCorrelation ID assigned]
     pino --> ratelimit[express-rate-limit\n100 req/min per IP]
     ratelimit -->|429 if exceeded| client
     ratelimit --> json[express.json\nBody parser]
     json --> router{Route match}
     router -->|GET /| handler_root[Root handler\nDB status check]
     router -->|GET /health| handler_health[Health handler]
+    router -->|GET /metrics| metrics_handler[Metrics handler\nPrometheus text format]
     router -->|GET /docs| swagger[Swagger UI]
     router -->|GET /openapi.json| openapi[OpenAPI spec]
     router -->|protected route| auth[requireAuth\nJWT verification]
