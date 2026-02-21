@@ -30,11 +30,11 @@ by Traefik/Dokploy monitoring.
 }
 ```
 
-| Field  | Type   | Description                                                  |
-| ------ | ------ | ------------------------------------------------------------ |
-| status | string | Always `"ok"` when the service is healthy                   |
-| env    | string | Value of `NODE_ENV` environment variable                     |
-| app    | string | Value of `APP_NAME` environment variable                     |
+| Field  | Type   | Description                               |
+| ------ | ------ | ----------------------------------------- |
+| status | string | Always `"ok"` when the service is healthy |
+| env    | string | Value of `NODE_ENV` environment variable  |
+| app    | string | Value of `APP_NAME` environment variable  |
 
 **Example:**
 
@@ -62,13 +62,13 @@ Returns a Hello World payload including the current database connection status.
 }
 ```
 
-| Field     | Type   | Description                                                            |
-| --------- | ------ | ---------------------------------------------------------------------- |
-| message   | string | Static greeting                                                        |
-| env       | string | Value of `NODE_ENV` environment variable                               |
-| app       | string | Value of `APP_NAME` environment variable                               |
-| db        | string | `"connected"`, `"error"`, or `"not configured"` (no `DATABASE_URL`)   |
-| timestamp | string | ISO 8601 timestamp of the response                                     |
+| Field     | Type   | Description                                                         |
+| --------- | ------ | ------------------------------------------------------------------- |
+| message   | string | Static greeting                                                     |
+| env       | string | Value of `NODE_ENV` environment variable                            |
+| app       | string | Value of `APP_NAME` environment variable                            |
+| db        | string | `"connected"`, `"error"`, or `"not configured"` (no `DATABASE_URL`) |
+| timestamp | string | ISO 8601 timestamp of the response                                  |
 
 **Example:**
 
@@ -154,15 +154,15 @@ Authorization: Bearer <your-jwt-token>
 
 ### Error Responses
 
-| Status | Body                              | Cause                         |
-| ------ | --------------------------------- | ----------------------------- |
-| 401    | `{"error": "Unauthorized"}`       | Missing `Authorization` header |
-| 401    | `{"error": "Invalid token"}`      | Token expired, malformed, or signed with wrong secret |
+| Status | Body                         | Cause                                                 |
+| ------ | ---------------------------- | ----------------------------------------------------- |
+| 401    | `{"error": "Unauthorized"}`  | Missing `Authorization` header                        |
+| 401    | `{"error": "Invalid token"}` | Token expired, malformed, or signed with wrong secret |
 
 ### Environment Variable
 
-| Variable     | Required | Description                                     |
-| ------------ | -------- | ----------------------------------------------- |
+| Variable     | Required                   | Description                                                 |
+| ------------ | -------------------------- | ----------------------------------------------------------- |
 | `JWT_SECRET` | Yes (for protected routes) | Signing secret — must match the secret used to issue tokens |
 
 If `JWT_SECRET` is an empty string, `jwt.verify` will reject all tokens. Set a strong, random
@@ -172,22 +172,22 @@ value in production.
 
 All routes are protected by `express-rate-limit` (`src/middleware/rate-limiter.ts`).
 
-| Parameter       | Value             |
-| --------------- | ----------------- |
-| Window          | 60 seconds        |
-| Max requests    | 100 per IP        |
+| Parameter       | Value                                                     |
+| --------------- | --------------------------------------------------------- |
+| Window          | 60 seconds                                                |
+| Max requests    | 100 per IP                                                |
 | Response format | `{"error": "Too many requests, please try again later."}` |
-| Headers         | Standard (`RateLimit-*`) — legacy headers disabled |
+| Headers         | Standard (`RateLimit-*`) — legacy headers disabled        |
 
 When the limit is exceeded, the server returns HTTP `429 Too Many Requests`.
 
 ### Rate Limit Response Headers
 
-| Header                  | Description                                    |
-| ----------------------- | ---------------------------------------------- |
-| `RateLimit-Limit`       | Maximum requests allowed in the window         |
-| `RateLimit-Remaining`   | Remaining requests in the current window       |
-| `RateLimit-Reset`       | Unix timestamp when the window resets          |
+| Header                | Description                              |
+| --------------------- | ---------------------------------------- |
+| `RateLimit-Limit`     | Maximum requests allowed in the window   |
+| `RateLimit-Remaining` | Remaining requests in the current window |
+| `RateLimit-Reset`     | Unix timestamp when the window resets    |
 
 **Note:** This is an application-level safety net. For production deployments, configure rate
 limiting at the Traefik level as well to protect against high-volume traffic before it reaches
@@ -229,10 +229,10 @@ All error responses follow a consistent JSON format:
 }
 ```
 
-| Status | Meaning                                               |
-| ------ | ----------------------------------------------------- |
-| 401    | Missing or invalid JWT token on a protected route     |
-| 429    | Rate limit exceeded                                   |
+| Status | Meaning                                                  |
+| ------ | -------------------------------------------------------- |
+| 401    | Missing or invalid JWT token on a protected route        |
+| 429    | Rate limit exceeded                                      |
 | 500    | Unhandled server error (logged at `error` level by pino) |
 
 ## Logging

@@ -16,7 +16,7 @@ module.exports = tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        project: true,
+        project: './tsconfig.eslint.json',
         tsconfigRootDir: __dirname,
       },
     },
@@ -119,14 +119,6 @@ module.exports = tseslint.config(
         { selector: 'enum', format: ['PascalCase'] },
         { selector: 'enumMember', format: ['UPPER_CASE'] },
       ],
-    },
-  },
-
-  // server.ts — allow process.exit() for graceful shutdown
-  {
-    files: ['src/server.ts'],
-    rules: {
-      'n/no-process-exit': 'off',
     },
   },
 

@@ -57,35 +57,35 @@ npm run dev
 
 ## Environment Variables
 
-| Variable       | Required | Default       | Description                                      |
-| -------------- | -------- | ------------- | ------------------------------------------------ |
-| `PORT`         | No       | `3001`        | HTTP port the app listens on                     |
-| `NODE_ENV`     | No       | `development` | Runtime environment label                        |
-| `APP_NAME`     | No       | `myapp-hello` | Application name included in responses           |
-| `DATABASE_URL` | No       | —             | PostgreSQL connection string                     |
-| `JWT_SECRET`   | No       | —             | Secret key for JWT verification                  |
-| `LOG_LEVEL`    | No       | `info`        | Pino log level (trace/debug/info/warn/error)     |
+| Variable       | Required | Default       | Description                                  |
+| -------------- | -------- | ------------- | -------------------------------------------- |
+| `PORT`         | No       | `3001`        | HTTP port the app listens on                 |
+| `NODE_ENV`     | No       | `development` | Runtime environment label                    |
+| `APP_NAME`     | No       | `myapp-hello` | Application name included in responses       |
+| `DATABASE_URL` | No       | —             | PostgreSQL connection string                 |
+| `JWT_SECRET`   | No       | —             | Secret key for JWT verification              |
+| `LOG_LEVEL`    | No       | `info`        | Pino log level (trace/debug/info/warn/error) |
 
 When `DATABASE_URL` is not set the app runs without a database and reports `db: "not configured"`.
 
 ## API Endpoints
 
-| Method | Path            | Auth | Description                            |
-| ------ | --------------- | ---- | -------------------------------------- |
-| GET    | `/`             | None | Hello World response with DB status    |
+| Method | Path            | Auth | Description                           |
+| ------ | --------------- | ---- | ------------------------------------- |
+| GET    | `/`             | None | Hello World response with DB status   |
 | GET    | `/health`       | None | Health check — returns `status: "ok"` |
-| GET    | `/docs`         | None | Swagger UI (OpenAPI 3.0)               |
-| GET    | `/openapi.json` | None | Raw OpenAPI specification              |
+| GET    | `/docs`         | None | Swagger UI (OpenAPI 3.0)              |
+| GET    | `/openapi.json` | None | Raw OpenAPI specification             |
 
 Protected routes can be added using the `requireAuth` middleware from `src/middleware/auth.ts`.
 
 ## Environments
 
-| Environment | Branch    | External Port | URL                                          |
-| ----------- | --------- | ------------- | -------------------------------------------- |
-| Production  | `main`    | `:3013`       | `https://apolenkov.duckdns.org`              |
-| Staging     | `develop` | `:3012`       | `https://staging.apolenkov.duckdns.org`      |
-| Dev         | `dev`     | `:3011`       | `https://dev.apolenkov.duckdns.org`          |
+| Environment | Branch    | External Port | URL                                     |
+| ----------- | --------- | ------------- | --------------------------------------- |
+| Production  | `main`    | `:3013`       | `https://apolenkov.duckdns.org`         |
+| Staging     | `develop` | `:3012`       | `https://staging.apolenkov.duckdns.org` |
+| Dev         | `dev`     | `:3011`       | `https://dev.apolenkov.duckdns.org`     |
 
 Each environment has its own PostgreSQL instance and independent configuration.
 
@@ -98,21 +98,21 @@ Each environment has its own PostgreSQL instance and independent configuration.
 
 ## Tech Stack
 
-| Layer              | Technology                                          |
-| ------------------ | --------------------------------------------------- |
-| Runtime            | Node.js 22 (LTS)                                    |
-| Framework          | Express 4                                           |
-| Language           | TypeScript 5 (strict mode)                          |
-| Database           | PostgreSQL 16/17 via `node-postgres`                |
-| Logging            | pino + pino-http (structured JSON)                  |
-| Auth middleware    | jsonwebtoken                                        |
-| Rate limiting      | express-rate-limit                                  |
-| API docs           | swagger-jsdoc + swagger-ui-express                  |
-| Testing            | Vitest + @vitest/coverage-v8                        |
-| Linting            | ESLint 9 (sonarjs, unicorn, security, import-x)     |
-| Formatting         | Prettier 3                                          |
-| Architecture lint  | dependency-cruiser                                  |
-| Containerization   | Docker (multi-stage build, non-root user, dumb-init)|
-| Orchestration      | Docker Swarm via Dokploy                            |
-| CI/CD              | GitHub Actions                                      |
-| Releases           | semantic-release                                    |
+| Layer             | Technology                                           |
+| ----------------- | ---------------------------------------------------- |
+| Runtime           | Node.js 22 (LTS)                                     |
+| Framework         | Express 4                                            |
+| Language          | TypeScript 5 (strict mode)                           |
+| Database          | PostgreSQL 16/17 via `node-postgres`                 |
+| Logging           | pino + pino-http (structured JSON)                   |
+| Auth middleware   | jsonwebtoken                                         |
+| Rate limiting     | express-rate-limit                                   |
+| API docs          | swagger-jsdoc + swagger-ui-express                   |
+| Testing           | Vitest + @vitest/coverage-v8                         |
+| Linting           | ESLint 9 (sonarjs, unicorn, security, import-x)      |
+| Formatting        | Prettier 3                                           |
+| Architecture lint | dependency-cruiser                                   |
+| Containerization  | Docker (multi-stage build, non-root user, dumb-init) |
+| Orchestration     | Docker Swarm via Dokploy                             |
+| CI/CD             | GitHub Actions                                       |
+| Releases          | semantic-release                                     |

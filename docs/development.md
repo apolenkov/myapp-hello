@@ -5,12 +5,12 @@ and how to run tests.
 
 ## Prerequisites
 
-| Requirement  | Minimum version | Notes                                      |
-| ------------ | --------------- | ------------------------------------------ |
-| Node.js      | 22              | Use `nvm` or `fnm` to manage versions      |
-| npm          | 10              | Bundled with Node.js 22                    |
-| Docker       | 24              | Required for local PostgreSQL              |
-| Docker Compose | v2 (`compose` subcommand) | Bundled with Docker Desktop |
+| Requirement    | Minimum version           | Notes                                 |
+| -------------- | ------------------------- | ------------------------------------- |
+| Node.js        | 22                        | Use `nvm` or `fnm` to manage versions |
+| npm            | 10                        | Bundled with Node.js 22               |
+| Docker         | 24                        | Required for local PostgreSQL         |
+| Docker Compose | v2 (`compose` subcommand) | Bundled with Docker Desktop           |
 
 ## Local Setup
 
@@ -45,18 +45,18 @@ changes.
 
 ## npm Scripts
 
-| Script              | Command                                       | Description                                  |
-| ------------------- | --------------------------------------------- | -------------------------------------------- |
-| `npm start`         | `node dist/server.js`                         | Start compiled production build              |
-| `npm run dev`       | `ts-node-dev --respawn src/server.ts`         | Start dev server with hot reload             |
-| `npm run build`     | `tsc`                                         | Compile TypeScript to `dist/`                |
-| `npm test`          | `vitest run`                                  | Run all tests once                           |
-| `npm run test:coverage` | `vitest run --coverage`                   | Run tests and generate coverage report       |
-| `npm run lint`      | `eslint src`                                  | Lint TypeScript source files                 |
-| `npm run lint:fix`  | `eslint src --fix`                            | Auto-fix linting issues                      |
-| `npm run format`    | `prettier --write .`                          | Format all files in place                    |
-| `npm run format:check` | `prettier --check .`                       | Verify formatting without modifying files    |
-| `npm run check:arch` | `depcruise src --config .dependency-cruiser.cjs` | Enforce architectural boundaries        |
+| Script                  | Command                                          | Description                               |
+| ----------------------- | ------------------------------------------------ | ----------------------------------------- |
+| `npm start`             | `node dist/server.js`                            | Start compiled production build           |
+| `npm run dev`           | `ts-node-dev --respawn src/server.ts`            | Start dev server with hot reload          |
+| `npm run build`         | `tsc`                                            | Compile TypeScript to `dist/`             |
+| `npm test`              | `vitest run`                                     | Run all tests once                        |
+| `npm run test:coverage` | `vitest run --coverage`                          | Run tests and generate coverage report    |
+| `npm run lint`          | `eslint src`                                     | Lint TypeScript source files              |
+| `npm run lint:fix`      | `eslint src --fix`                               | Auto-fix linting issues                   |
+| `npm run format`        | `prettier --write .`                             | Format all files in place                 |
+| `npm run format:check`  | `prettier --check .`                             | Verify formatting without modifying files |
+| `npm run check:arch`    | `depcruise src --config .dependency-cruiser.cjs` | Enforce architectural boundaries          |
 
 ## Database Migrations
 
@@ -118,20 +118,20 @@ The next application startup will apply it automatically.
 
 ### Current Migrations
 
-| File                | Description                                     |
-| ------------------- | ----------------------------------------------- |
-| `001_initial.sql`   | Creates `health_checks` table (id, checked_at, status) |
+| File              | Description                                            |
+| ----------------- | ------------------------------------------------------ |
+| `001_initial.sql` | Creates `health_checks` table (id, checked_at, status) |
 
 ## Environment Variables
 
-| Variable       | Default                                                             | Notes                               |
-| -------------- | ------------------------------------------------------------------- | ----------------------------------- |
-| `PORT`         | `3001`                                                              | Change if port is occupied          |
-| `NODE_ENV`     | `development`                                                       | Controls log format and env label   |
-| `APP_NAME`     | `myapp-hello`                                                       | Appears in API responses            |
-| `DATABASE_URL` | `postgresql://dev_user:dev_secret_123@postgres:5432/myapp_dev` (docker-compose) | Full connection string |
-| `JWT_SECRET`   | empty string (auth disabled without a secret)                       | Required for `requireAuth` routes   |
-| `LOG_LEVEL`    | `info`                                                              | Options: trace/debug/info/warn/error |
+| Variable       | Default                                                                         | Notes                                |
+| -------------- | ------------------------------------------------------------------------------- | ------------------------------------ |
+| `PORT`         | `3001`                                                                          | Change if port is occupied           |
+| `NODE_ENV`     | `development`                                                                   | Controls log format and env label    |
+| `APP_NAME`     | `myapp-hello`                                                                   | Appears in API responses             |
+| `DATABASE_URL` | `postgresql://dev_user:dev_secret_123@postgres:5432/myapp_dev` (docker-compose) | Full connection string               |
+| `JWT_SECRET`   | empty string (auth disabled without a secret)                                   | Required for `requireAuth` routes    |
+| `LOG_LEVEL`    | `info`                                                                          | Options: trace/debug/info/warn/error |
 
 When running with `docker compose up`, all defaults from `docker-compose.yml` are applied
 automatically.

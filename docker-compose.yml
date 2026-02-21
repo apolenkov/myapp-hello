@@ -3,10 +3,7 @@ services:
     build: .
     ports:
       - '3001:3001'
-    environment:
-      - NODE_ENV=development
-      - APP_NAME=myapp-hello
-      - DATABASE_URL=postgresql://dev_user:dev_secret_123@postgres:5432/myapp_dev
+    env_file: .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -21,12 +18,11 @@ services:
 
   postgres:
     image: postgres:17-alpine
+    env_file: .env
     environment:
       POSTGRES_DB: myapp_dev
-      POSTGRES_USER: dev_user
-      POSTGRES_PASSWORD: dev_secret_123
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U dev_user -d myapp_dev']
+      test: ['CMD-SHELL', 'pg_isready -U $POSTGRES_USER -d myapp_dev']
       interval: 5s
       timeout: 5s
       retries: 5

@@ -11,5 +11,9 @@ export const logger = pino({
 export const httpLogger = pinoHttp({
   logger,
   genReqId: () => randomUUID(),
-  customLogLevel: (_req, res) => (res.statusCode >= 500 ? 'error' : 'info'),
+  customLogLevel: (_req, res) => {
+    if (res.statusCode >= 500) return 'error'
+    if (res.statusCode >= 400) return 'warn'
+    return 'info'
+  },
 })

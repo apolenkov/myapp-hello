@@ -13,13 +13,16 @@ RUN apk add --no-cache dumb-init
 
 WORKDIR /app
 
-# Non-root user
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
-USER nodejs
+# Install production deps as root (npm cache needs home dir)
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-COPY --chown=nodejs:nodejs package*.json ./
-RUN npm ci --omit=dev
+# Non-root user (created after npm ci)
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 COPY --chown=nodejs:nodejs --from=builder /app/dist ./dist
+COPY --chown=nodejs:nodejs migrations ./migrations
+
+USER nodejs
 
 EXPOSE 3001
 

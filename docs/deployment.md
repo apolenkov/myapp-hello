@@ -32,24 +32,24 @@ flowchart TD
 
 ### Pipeline Steps
 
-| Step                  | Tool                  | Failure behavior              |
-| --------------------- | --------------------- | ----------------------------- |
-| TypeScript strict check | `tsc --noEmit`      | Blocks deploy                 |
-| ESLint                | `eslint src`          | Blocks deploy                 |
-| Prettier check        | `prettier --check .`  | Blocks deploy                 |
-| YAML lint             | `yamllint .github/`   | Blocks deploy                 |
-| Architecture check    | `depcruise`           | Blocks deploy                 |
-| Tests                 | `vitest run`          | Blocks deploy                 |
-| Coverage upload       | `codecov-action@v5`   | Non-blocking (`fail_ci_if_error: false`) |
-| Deploy                | Dokploy REST API      | Blocks on API error           |
+| Step                    | Tool                 | Failure behavior                         |
+| ----------------------- | -------------------- | ---------------------------------------- |
+| TypeScript strict check | `tsc --noEmit`       | Blocks deploy                            |
+| ESLint                  | `eslint src`         | Blocks deploy                            |
+| Prettier check          | `prettier --check .` | Blocks deploy                            |
+| YAML lint               | `yamllint .github/`  | Blocks deploy                            |
+| Architecture check      | `depcruise`          | Blocks deploy                            |
+| Tests                   | `vitest run`         | Blocks deploy                            |
+| Coverage upload         | `codecov-action@v5`  | Non-blocking (`fail_ci_if_error: false`) |
+| Deploy                  | Dokploy REST API     | Blocks on API error                      |
 
 ## Environments
 
-| Environment | Branch    | External Port | Internal Port | URL                                      |
-| ----------- | --------- | ------------- | ------------- | ---------------------------------------- |
-| Production  | `main`    | `:3013`       | `:3001`       | `https://apolenkov.duckdns.org`          |
-| Staging     | `develop` | `:3012`       | `:3001`       | `https://staging.apolenkov.duckdns.org`  |
-| Dev         | `dev`     | `:3011`       | `:3001`       | `https://dev.apolenkov.duckdns.org`      |
+| Environment | Branch    | External Port | Internal Port | URL                                     |
+| ----------- | --------- | ------------- | ------------- | --------------------------------------- |
+| Production  | `main`    | `:3013`       | `:3001`       | `https://apolenkov.duckdns.org`         |
+| Staging     | `develop` | `:3012`       | `:3001`       | `https://staging.apolenkov.duckdns.org` |
+| Dev         | `dev`     | `:3011`       | `:3001`       | `https://dev.apolenkov.duckdns.org`     |
 
 Each environment maps to a separate Dokploy service and a separate PostgreSQL container with its
 own persistent volume.
@@ -150,14 +150,14 @@ docker service update --force traefik_traefik
 
 The following secrets must be configured in the repository before the pipeline can deploy:
 
-| Secret                        | Description                                          |
-| ----------------------------- | ---------------------------------------------------- |
-| `DOKPLOY_URL`                 | Dokploy API base URL (e.g., `http://185.239.48.55:3000`) |
-| `DOKPLOY_TOKEN`               | Dokploy API key — generate in Dokploy Settings       |
-| `DOKPLOY_SERVICE_ID_PROD`     | Dokploy application ID for the production service    |
-| `DOKPLOY_SERVICE_ID_STAGING`  | Dokploy application ID for the staging service       |
-| `DOKPLOY_SERVICE_ID_DEV`      | Dokploy application ID for the dev service           |
-| `CODECOV_TOKEN`               | Codecov upload token — obtain from codecov.io        |
+| Secret                       | Description                                              |
+| ---------------------------- | -------------------------------------------------------- |
+| `DOKPLOY_URL`                | Dokploy API base URL (e.g., `http://185.239.48.55:3000`) |
+| `DOKPLOY_TOKEN`              | Dokploy API key — generate in Dokploy Settings           |
+| `DOKPLOY_SERVICE_ID_PROD`    | Dokploy application ID for the production service        |
+| `DOKPLOY_SERVICE_ID_STAGING` | Dokploy application ID for the staging service           |
+| `DOKPLOY_SERVICE_ID_DEV`     | Dokploy application ID for the dev service               |
+| `CODECOV_TOKEN`              | Codecov upload token — obtain from codecov.io            |
 
 Set secrets via the GitHub web UI (**Settings > Secrets and variables > Actions**) or with the
 `gh` CLI:
