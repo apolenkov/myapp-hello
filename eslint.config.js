@@ -50,7 +50,7 @@ module.exports = tseslint.config(
     },
   },
 
-  // JSDoc — public API documentation
+  // JSDoc — public API documentation (ClassDeclaration off for NestJS decorated classes)
   {
     plugins: { jsdoc },
     rules: {
@@ -60,8 +60,8 @@ module.exports = tseslint.config(
           publicOnly: true,
           require: {
             FunctionDeclaration: true,
-            MethodDefinition: true,
-            ClassDeclaration: true,
+            MethodDefinition: false,
+            ClassDeclaration: false,
             ArrowFunctionExpression: false,
           },
         },
@@ -106,6 +106,7 @@ module.exports = tseslint.config(
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-extraneous-class': 'off',
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       '@typescript-eslint/explicit-function-return-type': 'error',
       '@typescript-eslint/explicit-module-boundary-types': 'error',
@@ -119,6 +120,26 @@ module.exports = tseslint.config(
         { selector: 'enum', format: ['PascalCase'] },
         { selector: 'enumMember', format: ['UPPER_CASE'] },
       ],
+    },
+  },
+
+  // Test file overrides (NestJS testing APIs return untyped values)
+  {
+    files: ['src/__tests__/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      'security/detect-object-injection': 'off',
+    },
+  },
+
+  // Bootstrap file overrides
+  {
+    files: ['src/main.ts'],
+    rules: {
+      'n/no-process-exit': 'off',
     },
   },
 

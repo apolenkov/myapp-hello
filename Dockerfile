@@ -3,7 +3,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
-COPY tsconfig.json ./
+COPY tsconfig.json nest-cli.json ./
 COPY src ./src
 RUN npm run build
 
@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Install production deps as root (npm cache needs home dir)
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 # Non-root user (created after npm ci)
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
@@ -30,4 +30,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/server.js"]
+CMD ["node", "--require", "./dist/instrumentation.js", "dist/main.js"]

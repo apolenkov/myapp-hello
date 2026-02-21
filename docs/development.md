@@ -40,16 +40,16 @@ To run only the app (without Docker), start PostgreSQL separately then:
 npm run dev
 ```
 
-`npm run dev` uses `ts-node-dev` with `--respawn` — the server restarts automatically on file
-changes.
+`npm run dev` uses `nest start --watch` — the server restarts automatically on file changes using SWC
+for fast compilation.
 
 ## npm Scripts
 
 | Script                  | Command                                          | Description                               |
 | ----------------------- | ------------------------------------------------ | ----------------------------------------- |
-| `npm start`             | `node dist/server.js`                            | Start compiled production build           |
-| `npm run dev`           | `ts-node-dev --respawn src/server.ts`            | Start dev server with hot reload          |
-| `npm run build`         | `tsc`                                            | Compile TypeScript to `dist/`             |
+| `npm start`             | `node dist/main.js`                              | Start compiled production build           |
+| `npm run dev`           | `nest start --watch`                             | Start dev server with hot reload (SWC)    |
+| `npm run build`         | `nest build`                                     | Compile TypeScript to `dist/` via SWC     |
 | `npm test`              | `vitest run`                                     | Run all tests once                        |
 | `npm run test:coverage` | `vitest run --coverage`                          | Run tests and generate coverage report    |
 | `npm run lint`          | `eslint src`                                     | Lint TypeScript source files              |
@@ -67,7 +67,7 @@ system is idempotent — running it multiple times is safe.
 ```mermaid
 %%{init: {theme: 'neutral'}}%%
 sequenceDiagram
-    participant App as Express App
+    participant App as NestJS App
     participant DB as PostgreSQL
     App->>DB: BEGIN
     App->>DB: SELECT pg_advisory_xact_lock(7777777)
@@ -129,7 +129,7 @@ The next application startup will apply it automatically.
 | `NODE_ENV`     | `development`                                         | Controls log format and env label    |
 | `APP_NAME`     | `myapp-hello`                                         | Appears in API responses             |
 | `DATABASE_URL` | See `.env.example` (docker-compose reads from `.env`) | Full connection string               |
-| `JWT_SECRET`   | empty string (auth disabled without a secret)         | Required for `requireAuth` routes    |
+| `JWT_SECRET`   | empty string (auth disabled without a secret)         | Required for protected routes        |
 | `LOG_LEVEL`    | `info`                                                | Options: trace/debug/info/warn/error |
 
 When running with `docker compose up`, all defaults from `docker-compose.yml` are applied

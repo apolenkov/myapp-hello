@@ -5,11 +5,11 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A production-ready Node.js REST API built with Express and PostgreSQL. Ships with structured
-logging, OpenTelemetry instrumentation, JWT authentication middleware, rate limiting, OpenAPI
-documentation, automated database migrations, a full CI/CD pipeline, and a complete observability
-stack (Grafana + Prometheus + Loki + Tempo) — all deploying to three isolated environments on a
-Docker Swarm VPS via Dokploy.
+A production-ready Node.js REST API built with NestJS and PostgreSQL. Ships with structured logging,
+OpenTelemetry instrumentation, JWT authentication guard, rate limiting, OpenAPI documentation,
+automated database migrations, a full CI/CD pipeline, and a complete observability stack (Grafana +
+Prometheus + Loki + Tempo) — all deploying to three isolated environments on a Docker Swarm VPS via
+Dokploy.
 
 ## Architecture
 
@@ -87,7 +87,8 @@ When `DATABASE_URL` is not set the app runs without a database and reports `db: 
 | GET    | `/docs`         | None | Swagger UI (OpenAPI 3.0)              |
 | GET    | `/openapi.json` | None | Raw OpenAPI specification             |
 
-Protected routes can be added using the `requireAuth` middleware from `src/middleware/auth.ts`.
+Protected routes are secured by a global `JwtAuthGuard`. Use the `@Public()` decorator to opt out
+specific endpoints from authentication.
 
 ## Environments
 
@@ -112,14 +113,14 @@ Each environment has its own PostgreSQL instance and independent configuration.
 | Layer             | Technology                                           |
 | ----------------- | ---------------------------------------------------- |
 | Runtime           | Node.js 22 (LTS)                                     |
-| Framework         | Express 4                                            |
+| Framework         | NestJS 11 (Express adapter)                          |
 | Language          | TypeScript 5 (strict mode)                           |
 | Database          | PostgreSQL 16/17 via `node-postgres`                 |
-| Logging           | pino + pino-http (structured JSON)                   |
+| Logging           | nestjs-pino (structured JSON via Pino)               |
 | Observability     | OpenTelemetry + Prometheus + Loki + Tempo + Grafana  |
-| Auth middleware   | jsonwebtoken                                         |
-| Rate limiting     | express-rate-limit                                   |
-| API docs          | swagger-jsdoc + swagger-ui-express                   |
+| Auth              | @nestjs/jwt + global JwtAuthGuard                    |
+| Rate limiting     | @nestjs/throttler (global ThrottlerGuard)            |
+| API docs          | @nestjs/swagger (decorator-driven OpenAPI)           |
 | Testing           | Vitest + @vitest/coverage-v8                         |
 | Linting           | ESLint 9 (sonarjs, unicorn, security, import-x)      |
 | Formatting        | Prettier 3                                           |

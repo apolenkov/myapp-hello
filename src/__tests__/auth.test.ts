@@ -1,72 +1,87 @@
-import type { NextFunction, Request, Response } from 'express'
-import jwt from 'jsonwebtoken'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { INestApplication } from '@nestjs/common'
+import { Controller, Get, Module } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import { JwtService } from '@nestjs/jwt'
+import { Test } from '@nestjs/testing'
+import request from 'supertest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { requireAuth } from '../middleware/auth'
+import { AppModule } from '../app.module'
+import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
 
 const TEST_SECRET = 'test-secret-for-unit-tests'
 
-interface MockReqRes {
-  req: Request
-  res: Response
-  next: NextFunction
-  statusMock: ReturnType<typeof vi.fn>
-  jsonMock: ReturnType<typeof vi.fn>
-  nextMock: ReturnType<typeof vi.fn>
+@Controller('protected-test')
+class ProtectedTestController {
+  @Get()
+  getProtected(): { ok: boolean } {
+    return { ok: true }
+  }
 }
 
-const createMockReqRes = (authHeader?: string): MockReqRes => {
-  const req = {
-    headers: authHeader ? { authorization: authHeader } : {},
-  } as unknown as Request
+@Module({ controllers: [ProtectedTestController] })
+class ProtectedTestModule {}
 
-  const statusMock = vi.fn().mockReturnThis()
-  const jsonMock = vi.fn().mockReturnThis()
-  const res = { status: statusMock, json: jsonMock } as unknown as Response
+let app: INestApplication
 
-  const nextMock = vi.fn()
-  const next = nextMock as NextFunction
+beforeAll(async () => {
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule, ProtectedTestModule],
+  })
+    .overrideProvider(ConfigService)
+    .useValue({
+      get: (key: string) => {
+        const config: Record<string, string> = {
+          JWT_SECRET: TEST_SECRET,
+          NODE_ENV: 'test',
+          APP_NAME: 'myapp-hello',
+        }
+        return config[key]
+      },
+    })
+    .compile()
 
-  return { req, res, next, statusMock, jsonMock, nextMock }
-}
+  app = moduleRef.createNestApplication()
+  app.useGlobalFilters(new UnauthorizedExceptionFilter())
+  await app.init()
+})
 
-describe('requireAuth middleware', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
+afterAll(async () => {
+  await app.close()
+})
+
+describe('Auth Guard', () => {
+  it('should return 401 when no Authorization header on protected route', async () => {
+    const res = await request(app.getHttpServer()).get('/protected-test')
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: 'Unauthorized' })
   })
 
-  it('should return 401 when no Authorization header', () => {
-    const { req, res, next, statusMock, jsonMock, nextMock } = createMockReqRes()
+  it('should return 401 for invalid token', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/protected-test')
+      .set('Authorization', 'Bearer invalid.token.here')
 
-    requireAuth(req, res, next)
-
-    expect(statusMock).toHaveBeenCalledWith(401)
-    expect(jsonMock).toHaveBeenCalledWith({ error: 'Unauthorized' })
-    expect(nextMock).not.toHaveBeenCalled()
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: 'Invalid token' })
   })
 
-  it('should return 401 for invalid token', () => {
-    const { req, res, next, statusMock, jsonMock, nextMock } = createMockReqRes(
-      'Bearer invalid.token.here',
-    )
+  it('should allow access to @Public() routes without token', async () => {
+    const res = await request(app.getHttpServer()).get('/health')
 
-    requireAuth(req, res, next)
-
-    expect(statusMock).toHaveBeenCalledWith(401)
-    expect(jsonMock).toHaveBeenCalledWith({ error: 'Invalid token' })
-    expect(nextMock).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ status: 'ok' })
   })
 
-  it('should call next and attach user for valid token', () => {
-    vi.stubEnv('JWT_SECRET', TEST_SECRET)
-    const payload = { sub: 'user-123', role: 'admin' }
-    const token = jwt.sign(payload, TEST_SECRET)
-    const { req, res, next, statusMock, nextMock } = createMockReqRes(`Bearer ${token}`)
+  it('should allow access to @Public() routes with valid token', async () => {
+    const jwtService = new JwtService({})
+    const token = jwtService.sign({ sub: 'user-123', role: 'admin' }, { secret: TEST_SECRET })
 
-    requireAuth(req, res, next)
+    const res = await request(app.getHttpServer())
+      .get('/health')
+      .set('Authorization', `Bearer ${token}`)
 
-    expect(nextMock).toHaveBeenCalled()
-    expect((req as unknown as Record<string, unknown>)['user']).toMatchObject(payload)
-    expect(statusMock).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
   })
 })

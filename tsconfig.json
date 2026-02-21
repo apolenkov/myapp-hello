@@ -23,6 +23,9 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
 
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+
     "skipLibCheck": true
   },
   "include": ["src/**/*"],

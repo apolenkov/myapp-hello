@@ -121,7 +121,7 @@ block external access to this path. See the [Observability Guide](observability.
 ### GET /docs
 
 Serves the Swagger UI — an interactive HTML page for exploring and testing the API. The OpenAPI
-specification is generated automatically from `@openapi` JSDoc comments in route files.
+specification is generated automatically from `@nestjs/swagger` decorators on controllers.
 
 **Auth required:** No
 
@@ -158,34 +158,43 @@ curl https://apolenkov.duckdns.org/openapi.json | jq .info
 
 ## Authentication
 
-The application ships with a `requireAuth` middleware (`src/middleware/auth.ts`) that validates
-JSON Web Tokens. It is not applied to any built-in routes — it is intended to be attached to
-custom protected routes.
+The application uses a global `JwtAuthGuard` (`src/auth/auth.guard.ts`) that validates JSON Web
+Tokens on all routes by default. Public routes are opted out using the `@Public()` decorator.
 
 ### How It Works
 
-The middleware reads the `Authorization` header, strips the `Bearer` prefix, and calls
-`jwt.verify(token, JWT_SECRET)`. On success, the decoded payload is attached to the request object
-as `req.user`. On failure, a `401 Unauthorized` response is returned.
+The guard reads the `Authorization` header, strips the `Bearer` prefix, and calls
+`JwtService.verify(token, { secret })`. On success, the decoded payload is attached to the request
+object as `req.user`. On failure, a `401 Unauthorized` response is returned.
 
-### Applying to a Route
+### Adding a Protected Route
+
+All routes require authentication by default. To create a public route, use the `@Public()`
+decorator:
 
 ```typescript
-import { requireAuth } from './middleware/auth'
-import { Router } from 'express'
+import { Controller, Get } from '@nestjs/common'
+import { Public } from './auth/public.decorator'
 
-const router = Router()
+@Controller()
+export class ExampleController {
+  @Get('/protected')
+  getProtected(): { message: string } {
+    return { message: 'Authenticated' }
+  }
 
-// This route requires a valid Bearer token
-router.get('/protected', requireAuth, (req, res) => {
-  res.json({ message: 'Authenticated', user: (req as any).user })
-})
+  @Public()
+  @Get('/open')
+  getOpen(): { message: string } {
+    return { message: 'Public' }
+  }
+}
 ```
 
 ### Obtaining a Token
 
-The built-in routes do not issue tokens. Implement a `/auth/login` route in your application that
-calls `jwt.sign(payload, process.env.JWT_SECRET)` and returns the token to the client.
+The built-in routes do not issue tokens. Implement a `/auth/login` endpoint in your application that
+uses `JwtService.sign(payload)` and returns the token to the client.
 
 ### Request Format
 
@@ -207,12 +216,12 @@ Authorization: Bearer <your-jwt-token>
 | ------------ | -------------------------- | ----------------------------------------------------------- |
 | `JWT_SECRET` | Yes (for protected routes) | Signing secret — must match the secret used to issue tokens |
 
-If `JWT_SECRET` is an empty string, `jwt.verify` will reject all tokens. Set a strong, random
-value in production.
+If `JWT_SECRET` is an empty string, `JwtService.verify()` will reject all tokens. Set a strong,
+random value in production.
 
 ## Rate Limiting
 
-All routes are protected by `express-rate-limit` (`src/middleware/rate-limiter.ts`).
+All routes are protected by `@nestjs/throttler` configured as a global guard in `app.module.ts`.
 
 | Parameter       | Value                                                     |
 | --------------- | --------------------------------------------------------- |
@@ -242,24 +251,23 @@ the Node.js process.
 %%{init: {theme: 'neutral'}}%%
 flowchart TD
     client[Client] -->|HTTPS| traefik[Traefik\nTLS termination]
-    traefik -->|HTTP :3001| otel_mw[OTel metrics middleware\nDuration + count recording]
-    otel_mw --> pino[pino-http\nRequest logger\nCorrelation ID assigned]
-    pino --> ratelimit[express-rate-limit\n100 req/min per IP]
-    ratelimit -->|429 if exceeded| client
-    ratelimit --> json[express.json\nBody parser]
-    json --> router{Route match}
-    router -->|GET /| handler_root[Root handler\nDB status check]
-    router -->|GET /health| handler_health[Health handler]
-    router -->|GET /metrics| metrics_handler[Metrics handler\nPrometheus text format]
+    traefik -->|HTTP :3001| nestjs[NestJS\nnestjs-pino logger]
+    nestjs --> throttler[ThrottlerGuard\n100 req/min per IP]
+    throttler -->|429 if exceeded| client
+    throttler --> auth_guard[JwtAuthGuard\nJWT verification]
+    auth_guard -->|401 if invalid| client
+    auth_guard -->|@Public routes bypass| router{Route match}
+    router -->|GET /| ctrl_root[AppController\nDB status check]
+    router -->|GET /health| ctrl_health[AppController\nHealth check]
+    router -->|GET /metrics| metrics_ctrl[Metrics handler\nPrometheus text format]
     router -->|GET /docs| swagger[Swagger UI]
     router -->|GET /openapi.json| openapi[OpenAPI spec]
-    router -->|protected route| auth[requireAuth\nJWT verification]
-    auth -->|401 if invalid| client
-    auth --> protected_handler[Protected handler]
-    handler_root --> pg[(PostgreSQL)]
-    handler_root --> response[JSON response]
-    handler_health --> response
-    protected_handler --> response
+    router -->|protected route| ctrl_protected[Protected controller]
+    ctrl_root --> interceptor[MetricsInterceptor\nDuration + count]
+    ctrl_health --> interceptor
+    ctrl_protected --> interceptor
+    ctrl_root --> pg[(PostgreSQL)]
+    interceptor --> response[JSON response]
     response --> client
 ```
 
@@ -281,7 +289,7 @@ All error responses follow a consistent JSON format:
 
 ## Logging
 
-All requests are logged in structured JSON format by `pino-http`. Each request receives a unique
+All requests are logged in structured JSON format by `nestjs-pino`. Each request receives a unique
 UUID as a correlation ID (`reqId`), allowing distributed tracing across log lines.
 
 Log level for each response is determined by the HTTP status code:
@@ -305,6 +313,6 @@ Log output example (development):
 
 ## See Also
 
-- [Architecture](architecture.md) — Component diagram showing the middleware chain
+- [Architecture](architecture.md) — Component diagram showing the NestJS module structure
 - [Development Guide](development.md) — Running the API locally
 - [Deployment Guide](deployment.md) — Environment URLs and CI/CD

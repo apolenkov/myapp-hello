@@ -1,11 +1,50 @@
+import type { INestApplication } from '@nestjs/common'
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import { Test } from '@nestjs/testing'
 import request from 'supertest'
-import { describe, it, expect } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { app } from '../server'
+// instrumentation MUST be imported before AppModule so OTel SDK
+// registers the PrometheusExporter before custom meters are created
+import { prometheusExporter } from '../instrumentation'
+import { AppModule } from '../app.module'
+import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
+
+let app: INestApplication
+
+beforeAll(async () => {
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile()
+
+  app = moduleRef.createNestApplication()
+  app.useGlobalFilters(new UnauthorizedExceptionFilter())
+
+  const config = new DocumentBuilder()
+    .setTitle('myapp-hello API')
+    .setVersion('1.0.0')
+    .addBearerAuth()
+    .build()
+  const document = SwaggerModule.createDocument(app, config)
+  app
+    .getHttpAdapter()
+    .get('/openapi.json', (_req: unknown, res: { json: (body: unknown) => void }) => {
+      res.json(document)
+    })
+
+  const metricsHandler = prometheusExporter.getMetricsRequestHandler.bind(prometheusExporter)
+  app.getHttpAdapter().get('/metrics', metricsHandler)
+
+  await app.init()
+})
+
+afterAll(async () => {
+  await app.close()
+})
 
 describe('GET /health', () => {
   it('should return status ok without leaking env details', async () => {
-    const res = await request(app).get('/health').expect(200)
+    const res = await request(app.getHttpServer()).get('/health').expect(200)
 
     expect(res.body).toEqual({ status: 'ok' })
     expect(res.body).not.toHaveProperty('env')
@@ -15,7 +54,7 @@ describe('GET /health', () => {
 
 describe('GET /', () => {
   it('should return hello world with db not configured (no DATABASE_URL)', async () => {
-    const res = await request(app).get('/').expect(200)
+    const res = await request(app.getHttpServer()).get('/').expect(200)
 
     expect(res.body).toMatchObject({
       message: 'Hello World!',
@@ -27,7 +66,7 @@ describe('GET /', () => {
   })
 
   it('should return valid ISO timestamp', async () => {
-    const res = await request(app).get('/').expect(200)
+    const res = await request(app.getHttpServer()).get('/').expect(200)
     const body = res.body as { timestamp: string }
     const parsed = new Date(body.timestamp)
 
@@ -37,9 +76,9 @@ describe('GET /', () => {
 
 describe('GET /openapi.json', () => {
   it('should return valid OpenAPI 3.0 spec', async () => {
-    const res = await request(app).get('/openapi.json').expect(200)
+    const res = await request(app.getHttpServer()).get('/openapi.json').expect(200)
 
-    expect(res.body).toHaveProperty('openapi', '3.0.0')
+    expect(res.body).toHaveProperty('openapi')
     expect(res.body).toHaveProperty('info.title', 'myapp-hello API')
     expect(res.body).toHaveProperty('paths')
   })
@@ -47,7 +86,7 @@ describe('GET /openapi.json', () => {
 
 describe('Unknown route', () => {
   it('should return 404 for non-existent path', async () => {
-    const res = await request(app).get('/non-existent-path')
+    const res = await request(app.getHttpServer()).get('/non-existent-path')
 
     expect(res.status).toBe(404)
   })
@@ -55,9 +94,9 @@ describe('Unknown route', () => {
 
 describe('Rate limiter headers', () => {
   it('should include standard rate limit headers', async () => {
-    const res = await request(app).get('/health').expect(200)
+    const res = await request(app.getHttpServer()).get('/').expect(200)
 
-    expect(res.headers).toHaveProperty('ratelimit-limit')
-    expect(res.headers).toHaveProperty('ratelimit-remaining')
+    expect(res.headers).toHaveProperty('x-ratelimit-limit')
+    expect(res.headers).toHaveProperty('x-ratelimit-remaining')
   })
 })

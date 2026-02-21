@@ -46,9 +46,9 @@ Person(dev, "Developer")
 System_Boundary(vps, "VPS — Docker Swarm") {
     Container(traefik, "Traefik v3.6.7", "Reverse Proxy", "TLS termination, routing, ACME, :80/:443")
     Container(dokploy_admin, "Dokploy Admin", "Next.js", "PaaS management UI/API on :3000")
-    Container(app_prod, "myapp-hello-prod", "Node.js 22 + Express", "Production env, :3013 ext / :3001 int")
-    Container(app_staging, "myapp-hello-staging", "Node.js 22 + Express", "Staging env, :3012 ext / :3001 int")
-    Container(app_dev, "myapp-hello-dev", "Node.js 22 + Express", "Dev env, :3011 ext / :3001 int")
+    Container(app_prod, "myapp-hello-prod", "Node.js 22 + NestJS", "Production env, :3013 ext / :3001 int")
+    Container(app_staging, "myapp-hello-staging", "Node.js 22 + NestJS", "Staging env, :3012 ext / :3001 int")
+    Container(app_dev, "myapp-hello-dev", "Node.js 22 + NestJS", "Dev env, :3011 ext / :3001 int")
     ContainerDb(pg_prod, "PostgreSQL prod", "PostgreSQL 16", "Production database")
     ContainerDb(pg_staging, "PostgreSQL staging", "PostgreSQL 16", "Staging database")
     ContainerDb(pg_dev, "PostgreSQL dev", "PostgreSQL 16", "Dev database")
@@ -81,39 +81,41 @@ LAYOUT_WITH_LEGEND()
 
 ## C4 Level 3 — Component
 
-Shows the internal structure of the Express application: how the middleware chain is assembled,
-how the database migration system works, and how Swagger documentation is served.
+Shows the internal structure of the NestJS application: module architecture, guards, interceptors,
+dependency injection, and how the database migration system works.
 
 <!-- prettier-ignore -->
 ```plantuml
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 title Component Diagram — myapp-hello internals
-Container_Boundary(app, "myapp-hello — Express App") {
-    Component(server, "server.ts", "Express", "App bootstrap, middleware chain, graceful shutdown")
-    Component(router, "routes/index.ts", "Express Router", "GET /, GET /health, GET /docs, GET /metrics")
-    Component(auth_mw, "middleware/auth.ts", "JWT Middleware", "Verify Bearer token on protected routes")
-    Component(rate_mw, "middleware/rate-limiter.ts", "express-rate-limit", "100 req/min per IP")
-    Component(log_mw, "middleware/logger.ts", "pino", "Structured JSON logs + correlation IDs")
-    Component(metrics_mw, "middleware/metrics.ts", "OTel Middleware", "HTTP request duration + count")
+Container_Boundary(app, "myapp-hello — NestJS App") {
+    Component(main, "main.ts", "NestJS Bootstrap", "App bootstrap, Swagger setup, graceful shutdown")
+    Component(app_module, "app.module.ts", "Root Module", "Imports all feature modules, global guards")
+    Component(app_ctrl, "app.controller.ts", "Controller", "GET /, GET /health")
+    Component(app_svc, "app.service.ts", "Service", "DB connectivity check, app metadata")
+    Component(auth_module, "auth/", "AuthModule", "JwtModule + global JwtAuthGuard")
+    Component(auth_guard, "auth/auth.guard.ts", "JwtAuthGuard", "Verify Bearer token, @Public() bypass")
+    Component(db_module, "database/", "DatabaseModule", "pg Pool provider + DatabaseService")
+    Component(metrics_module, "metrics/", "MetricsModule", "OTel metrics interceptor")
+    Component(metrics_int, "metrics/metrics.interceptor.ts", "MetricsInterceptor", "HTTP duration + count")
     Component(otel, "instrumentation.ts", "OpenTelemetry SDK", "Prometheus exporter, OTLP traces")
-    Component(db, "db/index.ts", "node-postgres Pool", "Connection pool, query helper")
-    Component(migrate, "db/migrate.ts", "node-postgres", "Run SQL migrations on startup (advisory lock)")
-    Component(swagger, "swagger.ts", "swagger-ui-express", "OpenAPI 3.0 docs at /docs")
+    Component(migrate, "database/migrate.ts", "node-postgres", "Run SQL migrations on startup (advisory lock)")
 }
 ContainerDb(postgres, "PostgreSQL", "PostgreSQL 16")
 Container(traefik, "Traefik", "Reverse Proxy")
-Rel(traefik, server, "HTTP :3001")
-Rel(server, router, "Mount routes")
-Rel(server, auth_mw, "Use middleware")
-Rel(server, rate_mw, "Use middleware")
-Rel(server, log_mw, "Use middleware")
-Rel(server, metrics_mw, "Use middleware")
-Rel(server, otel, "Import first for monkey-patching")
-Rel(server, migrate, "await on startup")
-Rel(router, db, "Query")
-Rel(router, swagger, "Serve docs")
-Rel(db, postgres, "TCP :5432")
+Rel(traefik, main, "HTTP :3001")
+Rel(main, app_module, "Bootstrap")
+Rel(main, otel, "Import first for monkey-patching")
+Rel(app_module, app_ctrl, "Declares")
+Rel(app_module, auth_module, "Imports")
+Rel(app_module, db_module, "Imports")
+Rel(app_module, metrics_module, "Imports")
+Rel(app_ctrl, app_svc, "Injects")
+Rel(app_svc, db_module, "Injects DatabaseService")
+Rel(auth_guard, auth_module, "Provided by")
+Rel(metrics_int, metrics_module, "Provided by")
+Rel(db_module, postgres, "TCP :5432")
 Rel(migrate, postgres, "Run migrations")
 Rel(otel, prometheus_ext, "Serve /metrics", "HTTP")
 Rel(otel, tempo_ext, "Send traces", "OTLP HTTP :4318")
@@ -183,7 +185,7 @@ reach production.
 
 ### Migration Safety via Advisory Lock
 
-`db/migrate.ts` acquires a PostgreSQL transaction-scoped advisory lock
+`database/migrate.ts` acquires a PostgreSQL transaction-scoped advisory lock
 (`pg_advisory_xact_lock(7777777)`) inside a single transaction before running migrations. The lock
 auto-releases on `COMMIT`/`ROLLBACK`, eliminating the risk of lock leaks if a migration fails. In a
 Docker Swarm deployment where multiple replicas can start simultaneously, only one instance applies
@@ -203,7 +205,8 @@ A 10-second hard timeout ensures the process eventually exits even if connection
 ### Observability via OpenTelemetry
 
 The application uses OpenTelemetry SDK for vendor-neutral instrumentation. `instrumentation.ts` must
-be imported before any other module to enable monkey-patching of `http`, `express`, and `pg`.
+be imported before any other module to enable monkey-patching of `http`, `express` (NestJS adapter),
+and `pg`.
 Metrics are exposed via a Prometheus exporter at `/metrics`, and traces are sent to Tempo via OTLP.
 Promtail collects structured Pino logs from Docker and forwards them to Loki. All three signals
 (metrics, logs, traces) are correlated in Grafana via `traceId`.

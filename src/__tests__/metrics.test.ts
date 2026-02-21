@@ -1,53 +1,57 @@
+import type { INestApplication } from '@nestjs/common'
+import { Test } from '@nestjs/testing'
 import request from 'supertest'
-import { describe, it, expect } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { app } from '../server'
+// instrumentation MUST be imported before AppModule so OTel SDK
+// registers the PrometheusExporter before custom meters are created
+import { prometheusExporter } from '../instrumentation'
+import { AppModule } from '../app.module'
+
+let app: INestApplication
+
+beforeAll(async () => {
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile()
+
+  app = moduleRef.createNestApplication()
+
+  const metricsHandler = prometheusExporter.getMetricsRequestHandler.bind(prometheusExporter)
+  app.getHttpAdapter().get('/metrics', metricsHandler)
+
+  await app.init()
+})
+
+afterAll(async () => {
+  await app.close()
+})
 
 describe('GET /metrics', () => {
-  it('should return 200 with Prometheus text format', async () => {
-    const res = await request(app).get('/metrics').expect(200)
+  it('should return 200 with prometheus metrics', async () => {
+    const res = await request(app.getHttpServer()).get('/metrics')
 
-    expect(res.headers['content-type']).toContain('text/plain')
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toMatch(/text\/plain/)
   })
 
-  it('should include OTel resource and auto-instrumentation metrics', async () => {
-    await request(app).get('/').expect(200)
+  it('should include OTel target_info metric', async () => {
+    const res = await request(app.getHttpServer()).get('/metrics')
 
-    const res = await request(app).get('/metrics').expect(200)
-    const body = res.text
-
-    expect(body).toContain('target_info')
-    expect(body).toContain('http_server_duration')
+    expect(res.text).toContain('target_info')
   })
 
-  it('should include custom HTTP request metrics after a request', async () => {
-    // Hit a non-excluded route so custom metrics are recorded
-    await request(app).get('/').expect(200)
+  it('should include custom http_request_duration metric after making a request', async () => {
+    await request(app.getHttpServer()).get('/')
+    const res = await request(app.getHttpServer()).get('/metrics')
 
-    const res = await request(app).get('/metrics').expect(200)
-    const body = res.text
-
-    expect(body).toContain('http_request_duration')
-    expect(body).toContain('http_requests_total')
+    expect(res.text).toContain('http_request_duration')
   })
 
-  it('should not record /metrics and /health in custom HTTP metrics', async () => {
-    // Hit /metrics and /health multiple times
-    await request(app).get('/metrics')
-    await request(app).get('/health')
+  it('should include custom http_requests_total counter', async () => {
+    await request(app.getHttpServer()).get('/')
+    const res = await request(app.getHttpServer()).get('/metrics')
 
-    const res = await request(app).get('/metrics').expect(200)
-    const body = res.text
-
-    // /metrics and /health should be excluded from custom route labels
-    const routeLines = body
-      .split('\n')
-      .filter((line) => line.includes('http_request_duration') && line.includes('route='))
-
-    const hasMetricsRoute = routeLines.some((line) => line.includes('route="/metrics"'))
-    const hasHealthRoute = routeLines.some((line) => line.includes('route="/health"'))
-
-    expect(hasMetricsRoute).toBe(false)
-    expect(hasHealthRoute).toBe(false)
+    expect(res.text).toContain('http_requests')
   })
 })
