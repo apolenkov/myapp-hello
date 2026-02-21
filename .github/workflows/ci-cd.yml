@@ -1,3 +1,4 @@
+---
 name: CI/CD
 
 on:
@@ -114,10 +115,14 @@ jobs:
           GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
         run: |
           if [ -n "$GRAFANA_URL" ] && [ -n "$GRAFANA_API_TOKEN" ]; then
+            BODY="{\"text\":\"Deploy ${{ github.sha }}"
+            BODY="$BODY to ${{ steps.resolve.outputs.env }}\","
+            BODY="$BODY\"tags\":[\"deploy\","
+            BODY="$BODY\"${{ steps.resolve.outputs.env }}\"]}"
             curl -sf -X POST "$GRAFANA_URL/api/annotations" \
               -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"text\":\"Deploy ${{ github.sha }} to ${{ steps.resolve.outputs.env }}\",\"tags\":[\"deploy\",\"${{ steps.resolve.outputs.env }}\"]}"
+              -d "$BODY"
             echo "Grafana annotation created"
           else
             echo "Grafana annotation skipped (secrets not configured)"

@@ -5,13 +5,21 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
+      include: ['src/**/*.ts'],
       thresholds: {
         lines: 90,
         branches: 85,
         functions: 90,
         statements: 90,
       },
-      exclude: ['src/server.ts', 'src/config/**', '**/*.d.ts', 'dist/**'],
+      exclude: [
+        'src/server.ts',
+        'src/instrumentation.ts',
+        'src/db/migrate.ts',
+        'src/config/**',
+        '**/*.d.ts',
+        'dist/**',
+      ],
     },
   },
 })

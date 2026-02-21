@@ -45,6 +45,14 @@ describe('GET /openapi.json', () => {
   })
 })
 
+describe('Unknown route', () => {
+  it('should return 404 for non-existent path', async () => {
+    const res = await request(app).get('/non-existent-path')
+
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('Rate limiter headers', () => {
   it('should include standard rate limit headers', async () => {
     const res = await request(app).get('/health').expect(200)
