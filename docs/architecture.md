@@ -153,9 +153,11 @@ reach production.
 
 ### Migration Safety via Advisory Lock
 
-`db/migrate.ts` acquires a PostgreSQL advisory lock (`pg_advisory_lock(7777777)`) before running
-migrations. In a Docker Swarm deployment where multiple replicas can start simultaneously, only one
-instance applies pending migrations — the others wait until the lock is released.
+`db/migrate.ts` acquires a PostgreSQL transaction-scoped advisory lock
+(`pg_advisory_xact_lock(7777777)`) inside a single transaction before running migrations. The lock
+auto-releases on `COMMIT`/`ROLLBACK`, eliminating the risk of lock leaks if a migration fails. In a
+Docker Swarm deployment where multiple replicas can start simultaneously, only one instance applies
+pending migrations — the others wait until the lock is released.
 
 ### Non-Root Container
 

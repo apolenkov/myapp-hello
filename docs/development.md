@@ -68,36 +68,35 @@ system is idempotent — running it multiple times is safe.
 %%{init: {theme: 'neutral'}}%%
 sequenceDiagram
     participant App as Express App
-    participant Lock as pg_advisory_lock
     participant DB as PostgreSQL
-    App->>Lock: acquire lock (key=7777777)
-    Lock->>DB: SELECT pg_advisory_lock($1)
+    App->>DB: BEGIN
+    App->>DB: SELECT pg_advisory_xact_lock(7777777)
     App->>DB: CREATE TABLE IF NOT EXISTS migrations
     loop Each .sql file (sorted)
         App->>DB: SELECT 1 FROM migrations WHERE name=$1
         alt Not applied
-            App->>DB: BEGIN
             App->>DB: Execute SQL
             App->>DB: INSERT INTO migrations (name)
-            App->>DB: COMMIT
         else Already applied
             App-->>App: skip
         end
     end
-    App->>Lock: release lock
+    App->>DB: COMMIT (lock auto-released)
 ```
 
 ### How It Works
 
-1. The app connects to PostgreSQL and acquires `pg_advisory_lock(7777777)`. In a Docker Swarm
-   environment where multiple replicas can start at the same time, only one instance proceeds —
-   the rest block until the lock is released.
+1. The app connects to PostgreSQL, opens a transaction, and acquires
+   `pg_advisory_xact_lock(7777777)`. This is a transaction-scoped lock — it auto-releases on
+   `COMMIT` or `ROLLBACK`, eliminating the risk of lock leaks. In a Docker Swarm environment where
+   multiple replicas can start at the same time, only one instance proceeds — the rest block until
+   the lock is released.
 2. A `migrations` table is created if it does not exist.
 3. All `.sql` files in the `migrations/` directory are read and sorted alphabetically. Each file is
    checked against the `migrations` table. Already-applied files are skipped.
-4. New files are executed inside a transaction. On success, the filename is recorded. On failure,
-   the transaction is rolled back and the application exits with code 1.
-5. The advisory lock is released in a `finally` block.
+4. New files are executed within the same transaction. On success, the filename is recorded and the
+   transaction is committed. On failure, the transaction is rolled back and the application exits
+   with code 1.
 
 ### Adding a Migration
 
@@ -124,14 +123,14 @@ The next application startup will apply it automatically.
 
 ## Environment Variables
 
-| Variable       | Default                                                                         | Notes                                |
-| -------------- | ------------------------------------------------------------------------------- | ------------------------------------ |
-| `PORT`         | `3001`                                                                          | Change if port is occupied           |
-| `NODE_ENV`     | `development`                                                                   | Controls log format and env label    |
-| `APP_NAME`     | `myapp-hello`                                                                   | Appears in API responses             |
-| `DATABASE_URL` | `postgresql://dev_user:dev_secret_123@postgres:5432/myapp_dev` (docker-compose) | Full connection string               |
-| `JWT_SECRET`   | empty string (auth disabled without a secret)                                   | Required for `requireAuth` routes    |
-| `LOG_LEVEL`    | `info`                                                                          | Options: trace/debug/info/warn/error |
+| Variable       | Default                                               | Notes                                |
+| -------------- | ----------------------------------------------------- | ------------------------------------ |
+| `PORT`         | `3001`                                                | Change if port is occupied           |
+| `NODE_ENV`     | `development`                                         | Controls log format and env label    |
+| `APP_NAME`     | `myapp-hello`                                         | Appears in API responses             |
+| `DATABASE_URL` | See `.env.example` (docker-compose reads from `.env`) | Full connection string               |
+| `JWT_SECRET`   | empty string (auth disabled without a secret)         | Required for `requireAuth` routes    |
+| `LOG_LEVEL`    | `info`                                                | Options: trace/debug/info/warn/error |
 
 When running with `docker compose up`, all defaults from `docker-compose.yml` are applied
 automatically.

@@ -24,17 +24,16 @@ by Traefik/Dokploy monitoring.
 
 ```json
 {
-  "status": "ok",
-  "env": "production",
-  "app": "myapp-hello"
+  "status": "ok"
 }
 ```
 
 | Field  | Type   | Description                               |
 | ------ | ------ | ----------------------------------------- |
 | status | string | Always `"ok"` when the service is healthy |
-| env    | string | Value of `NODE_ENV` environment variable  |
-| app    | string | Value of `APP_NAME` environment variable  |
+
+The health endpoint intentionally omits environment details (`env`, `app`) to avoid leaking internal
+configuration to unauthenticated callers.
 
 **Example:**
 
@@ -242,8 +241,9 @@ UUID as a correlation ID (`reqId`), allowing distributed tracing across log line
 
 Log level for each response is determined by the HTTP status code:
 
-- Status `< 500` → `info`
 - Status `>= 500` → `error`
+- Status `>= 400` → `warn`
+- Status `< 400` → `info`
 
 Log output example (development):
 
