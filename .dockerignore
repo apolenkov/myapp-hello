@@ -6,6 +6,7 @@ coverage/
 .husky/
 .sisyphus/
 .claude/
+.turbo/
 docs/
 infra-ansible/
 observability/
@@ -19,6 +20,5 @@ scripts/
 .yamllint.yml
 README.md
 CLAUDE.md
-docker-compose.yml
-tsconfig.eslint.json
-eslint.config.js
+CONTRIBUTING.md
+SECURITY.md

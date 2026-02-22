@@ -1,0 +1,11 @@
+{
+  "name": "@myapp/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Shared TypeScript configuration for myapp monorepo",
+  "files": [
+    "base.json",
+    "nestjs.json"
+  ]
+}

@@ -13,16 +13,19 @@ depends on, and how code travels from developer to production.
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 title System Context — myapp-hello
-Person(dev, "Developer", "Pushes code to GitHub branches")
+Person(dev, "Developer", "Opens PRs to main branch")
 Person(user, "End User", "Accesses app via browser or API client")
 System(myapp, "myapp-hello", "Node.js REST API with 3 environments: dev/staging/prod")
 System_Ext(github, "GitHub", "Source control + GitHub Actions CI/CD")
+System_Ext(ghcr, "GHCR", "GitHub Container Registry — Docker image storage")
 System_Ext(dokploy, "Dokploy", "Self-hosted PaaS — Docker Swarm orchestration")
 System_Ext(duckdns, "DuckDNS", "Free dynamic DNS: apolenkov.duckdns.org")
 System_Ext(letsencrypt, "Let's Encrypt", "Free TLS certificates via ACME HTTP-01")
-Rel(dev, github, "git push", "HTTPS")
+Rel(dev, github, "Open PR to main", "HTTPS")
+Rel(github, ghcr, "Build & push image", "docker push (SHA tag)")
 Rel(github, dokploy, "Trigger deploy", "REST API (application.deploy)")
-Rel(dokploy, myapp, "Builds & deploys", "Docker Swarm")
+Rel(dokploy, ghcr, "Pull image", "docker pull")
+Rel(dokploy, myapp, "Deploys container", "Docker Swarm")
 Rel(user, myapp, "GET /health, GET /", "HTTPS via Traefik")
 Rel(myapp, duckdns, "DNS resolves to VPS", "185.239.48.55")
 Rel(dokploy, letsencrypt, "ACME HTTP-01 challenge", "HTTP :80")
@@ -59,10 +62,13 @@ System_Boundary(vps, "VPS — Docker Swarm") {
     Container(promtail, "Promtail", "Grafana Promtail 3.4", "Docker log collector")
 }
 System_Ext(github, "GitHub Actions")
+System_Ext(ghcr, "GHCR", "Docker image registry")
 Rel(user, traefik, "HTTPS", ":443")
 Rel(dev, dokploy_admin, "Manage deployments", "HTTP :3000")
 Rel(dev, grafana, "View dashboards", "HTTP :3100")
+Rel(github, ghcr, "Push image", "SHA tag + latest")
 Rel(github, dokploy_admin, "Trigger deploy", "REST /api/trpc/application.deploy")
+Rel(dokploy_admin, ghcr, "Pull image", "docker pull")
 Rel(traefik, app_prod, "Route apolenkov.duckdns.org", "HTTP :3001")
 Rel(traefik, app_staging, "Route staging.*", "HTTP :3001")
 Rel(traefik, app_dev, "Route dev.*", "HTTP :3001")
@@ -164,9 +170,11 @@ Deployment_Node(vps, "VPS Ubuntu", "185.239.48.55") {
 }
 Deployment_Node(ci, "GitHub", "github.com") {
     InfrastructureNode(actions, "GitHub Actions", "CI/CD pipeline")
+    InfrastructureNode(ghcr, "GHCR", "Docker image registry")
 }
 Rel(dns_record, traefik, "Resolves to")
 Rel(traefik, app_prod, "Route prod domain")
+Rel(actions, ghcr, "Build & push image")
 Rel(actions, traefik, "Trigger deploy via Dokploy API")
 Rel(prometheus, app_prod, "Scrape /metrics")
 Rel(promtail, loki, "Push logs")

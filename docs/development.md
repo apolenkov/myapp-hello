@@ -1,7 +1,7 @@
 # Development Guide
 
-This document covers local environment setup, available npm scripts, database migration workflow,
-and how to run tests.
+This document covers local environment setup for the Turborepo monorepo, available npm scripts,
+database migration workflow, and how to run tests.
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ cp .env.example .env
 # Edit .env — set DATABASE_URL if needed (docker-compose sets it automatically)
 
 # 4. Start with Docker Compose (app + PostgreSQL)
-docker compose up --build
+docker compose -f infra/docker-compose.yml up --build
 
 # 5. Verify the app is running
 curl http://localhost:3001/health
@@ -45,18 +45,30 @@ for fast compilation.
 
 ## npm Scripts
 
-| Script                  | Command                                          | Description                               |
-| ----------------------- | ------------------------------------------------ | ----------------------------------------- |
-| `npm start`             | `node dist/main.js`                              | Start compiled production build           |
-| `npm run dev`           | `nest start --watch`                             | Start dev server with hot reload (SWC)    |
-| `npm run build`         | `nest build`                                     | Compile TypeScript to `dist/` via SWC     |
-| `npm test`              | `vitest run`                                     | Run all tests once                        |
-| `npm run test:coverage` | `vitest run --coverage`                          | Run tests and generate coverage report    |
-| `npm run lint`          | `eslint src`                                     | Lint TypeScript source files              |
-| `npm run lint:fix`      | `eslint src --fix`                               | Auto-fix linting issues                   |
-| `npm run format`        | `prettier --write .`                             | Format all files in place                 |
-| `npm run format:check`  | `prettier --check .`                             | Verify formatting without modifying files |
-| `npm run check:arch`    | `depcruise src --config .dependency-cruiser.cjs` | Enforce architectural boundaries          |
+### Root (runs via Turborepo)
+
+| Script                  | Command                   | Description                               |
+| ----------------------- | ------------------------- | ----------------------------------------- |
+| `npm run build`         | `turbo run build`         | Compile all packages                      |
+| `npm run dev`           | `turbo run dev`           | Watch mode (all packages)                 |
+| `npm test`              | `turbo run test`          | Run all tests once                        |
+| `npm run test:coverage` | `turbo run test:coverage` | Run tests with coverage                   |
+| `npm run lint`          | `turbo run lint`          | Lint all packages                         |
+| `npm run format:check`  | `prettier --check .`      | Verify formatting without modifying files |
+| `npm run format`        | `prettier --write .`      | Format all files in place                 |
+| `npm run check:arch`    | `turbo run check:arch`    | Enforce architectural boundaries          |
+
+### apps/api (NestJS API)
+
+| Script                  | Command                                          | Description                           |
+| ----------------------- | ------------------------------------------------ | ------------------------------------- |
+| `npm start`             | `node dist/main.js`                              | Start compiled production build       |
+| `npm run dev`           | `nest start --watch`                             | Dev server with hot reload (SWC)      |
+| `npm run build`         | `nest build`                                     | Compile TypeScript to `dist/` via SWC |
+| `npm test`              | `vitest run`                                     | Run all tests once                    |
+| `npm run test:coverage` | `vitest run --coverage`                          | Tests with coverage report            |
+| `npm run lint`          | `eslint src`                                     | Lint TypeScript source files          |
+| `npm run check:arch`    | `depcruise src --config .dependency-cruiser.cjs` | Enforce architectural boundaries      |
 
 ## Database Migrations
 
@@ -92,7 +104,7 @@ sequenceDiagram
    multiple replicas can start at the same time, only one instance proceeds — the rest block until
    the lock is released.
 2. A `migrations` table is created if it does not exist.
-3. All `.sql` files in the `migrations/` directory are read and sorted alphabetically. Each file is
+3. All `.sql` files in the `apps/api/migrations/` directory are read and sorted alphabetically. Each file is
    checked against the `migrations` table. Already-applied files are skipped.
 4. New files are executed within the same transaction. On success, the filename is recorded and the
    transaction is committed. On failure, the transaction is rolled back and the application exits
@@ -100,11 +112,11 @@ sequenceDiagram
 
 ### Adding a Migration
 
-Create a new `.sql` file in `migrations/` using a numeric prefix to control ordering:
+Create a new `.sql` file in `apps/api/migrations/` using a numeric prefix to control ordering:
 
 ```bash
 # Example: add a users table
-cat > migrations/002_add_users.sql << 'EOF'
+cat > apps/api/migrations/002_add_users.sql << 'EOF'
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -132,7 +144,7 @@ The next application startup will apply it automatically.
 | `JWT_SECRET`   | empty string (auth disabled without a secret)         | Required for protected routes        |
 | `LOG_LEVEL`    | `info`                                                | Options: trace/debug/info/warn/error |
 
-When running with `docker compose up`, all defaults from `docker-compose.yml` are applied
+When running with `docker compose -f infra/docker-compose.yml up`, all defaults are applied
 automatically.
 
 ## Running Tests

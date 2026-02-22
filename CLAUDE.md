@@ -1,20 +1,18 @@
 # myapp-hello
 
-Production NestJS 11 REST API with PostgreSQL, JWT auth, OpenTelemetry observability, and Dokploy
-deployment.
+Turborepo monorepo: NestJS 11 REST API with PostgreSQL, JWT auth, OpenTelemetry observability, and
+Dokploy deployment via GHCR artifact promotion.
 
 ## Quick Reference
 
 ```bash
-npm run build          # Compile (SWC via NestJS CLI)
-npm run dev            # Watch mode (nest start --watch)
-npm test               # Vitest (no coverage)
-npm run test:coverage  # Vitest + v8 coverage (90/85/90/90 thresholds)
-npm run lint           # ESLint on src/
-npm run lint:fix       # ESLint with --fix
-npm run format:check   # Prettier dry-run
-npm run format         # Prettier format all
-npm run check:arch     # dependency-cruiser architecture validation
+npm run build          # turbo run build (all packages)
+npm run dev            # turbo run dev (watch mode)
+npm test               # turbo run test (Vitest, no coverage)
+npm run test:coverage  # turbo run test:coverage (v8, 90/85/90/90)
+npm run lint           # turbo run lint (ESLint)
+npm run format:check   # Prettier dry-run (root)
+npm run check:arch     # turbo run check:arch (dependency-cruiser)
 ```
 
 ## Pre-Commit Validation
@@ -22,24 +20,38 @@ npm run check:arch     # dependency-cruiser architecture validation
 Husky + lint-staged run on commit. Before committing manually:
 
 ```bash
-npx tsc --noEmit && npm run format:check && npm run lint && npm run test:coverage
+npx tsc --noEmit -p apps/api/tsconfig.json && npm run format:check && npm run lint && npm run test:coverage
 ```
 
-## Architecture
+## Monorepo Structure
 
 ```text
-src/
-  main.ts                  # Bootstrap, Swagger, graceful shutdown
-  app.module.ts            # Root module (config, logging, throttling, auth, metrics, db)
-  app.controller.ts        # GET / and GET /health
-  app.service.ts           # Business logic, DB status
-  instrumentation.ts       # OTel SDK init (loaded via --require)
-  metrics.ts               # Custom OTel meters (duration histogram, request counter)
-  auth/                    # JWT authentication (global guard)
-  database/                # PostgreSQL via pg Pool (global module)
-  metrics/                 # Request metrics interceptor (global)
-  db/                      # Migration runner (advisory lock, SQL files)
-  __tests__/               # Integration tests (Vitest + @nestjs/testing + supertest)
+myapp-hello/                          # Turborepo root (npm workspaces)
+  turbo.json                          # Pipeline config
+  package.json                        # Workspace root
+  apps/
+    api/                              # @myapp/api — NestJS REST API
+      src/
+        main.ts                       # Bootstrap, Swagger, graceful shutdown
+        app.module.ts                 # Root module (config, logging, throttling, auth, metrics, db)
+        app.controller.ts             # GET / and GET /health
+        app.service.ts                # Business logic, DB status
+        instrumentation.ts            # OTel SDK init (loaded via --require)
+        metrics.ts                    # Custom OTel meters
+        auth/                         # JWT authentication (global guard)
+        database/                     # PostgreSQL via pg Pool (global module)
+        metrics/                      # Request metrics interceptor (global)
+        db/                           # Migration runner (advisory lock, SQL files)
+        __tests__/                    # Integration tests (Vitest + @nestjs/testing + supertest)
+      migrations/                     # SQL migration files
+      Dockerfile                      # Multi-stage turbo prune build
+  packages/
+    eslint-config/                    # @myapp/eslint-config — shared ESLint flat config
+    typescript-config/                # @myapp/typescript-config — shared tsconfig presets
+  infra/
+    docker-compose.yml                # Local dev (PostgreSQL, Grafana stack)
+  scripts/
+    setup-ghcr-dokploy.sh            # Switch Dokploy apps to GHCR docker source
 ```
 
 ### Module Boundaries (enforced by dependency-cruiser)
@@ -76,10 +88,12 @@ src/
 
 ## Deployment
 
-- **Docker:** Multi-stage build, node:22-alpine, dumb-init, non-root user (nodejs:1001)
+- **Docker:** Multi-stage turbo prune build, node:22-alpine, dumb-init, non-root user (nodejs:1001)
 - **PaaS:** Dokploy (Docker Swarm on VPS 185.239.48.55)
-- **CI/CD:** GitHub Actions — quality gates → test → deploy (Dokploy API trigger + polling /health)
-- **Environments:** main → prod (:3013), develop → staging (:3012), dev → dev (:3011)
+- **Artifact promotion:** Build once → push to GHCR → deploy same image to dev → staging → prod
+- **CI/CD:** GitHub Actions — `ci.yml` (quality + tests) + `deploy.yml` (GHCR + environment cascade)
+- **Git workflow:** Trunk-based (single main branch, short-lived feature branches)
+- **Environments:** dev (auto-deploy), staging (manual approval), production (manual approval)
 - **Domain:** apolenkov.duckdns.org (prod), Traefik reverse proxy with Let's Encrypt
 
 ### Dokploy API
@@ -111,7 +125,7 @@ src/
 - `DOKPLOY_URL`, `DOKPLOY_TOKEN` — Dokploy API access
 - `DOKPLOY_SERVICE_ID_PROD/STAGING/DEV` — application IDs
 - `CODECOV_TOKEN` — coverage upload
-- `APP_PUBLIC_URL` — health check verification in CI
+- `APP_PUBLIC_URL`, `APP_PUBLIC_URL_DEV`, `APP_PUBLIC_URL_STAGING` — health check URLs per env
 - `GRAFANA_API_TOKEN`, `GRAFANA_URL` — deploy annotations
 - `JWT_SECRET` — auth token signing (runtime env var)
 

@@ -1,0 +1,175 @@
+---
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/myapp-api
+
+jobs:
+  # ── Build & Push to GHCR ───────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-sha: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # ── Deploy to dev (auto) ───────────────────────────────────────────────
+  deploy-dev:
+    name: Deploy → dev
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: dev
+
+    steps:
+      - name: Deploy to Dokploy (dev)
+        run: |
+          curl -sf -X POST \
+            "${{ secrets.DOKPLOY_URL }}/api/trpc/application.deploy" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_SERVICE_ID_DEV }}"}}'
+          echo "Deploy to dev triggered"
+
+      - name: Verify health
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL_DEV }}"
+          if [ -z "$URL" ]; then
+            echo "APP_PUBLIC_URL_DEV not configured, skipping"
+            exit 0
+          fi
+          for i in $(seq 1 20); do
+            HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' "$URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed (attempt $i/20)"
+              exit 0
+            fi
+            echo "Attempt $i/20 — HTTP $HTTP_CODE, retrying in 15s..."
+            sleep 15
+          done
+          echo "Health check did not pass within 300s"
+          exit 1
+
+  # ── Deploy to staging (manual approval) ────────────────────────────────
+  deploy-staging:
+    name: Deploy → staging
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    environment: staging
+
+    steps:
+      - name: Deploy to Dokploy (staging)
+        run: |
+          curl -sf -X POST \
+            "${{ secrets.DOKPLOY_URL }}/api/trpc/application.deploy" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_SERVICE_ID_STAGING }}"}}'
+          echo "Deploy to staging triggered"
+
+      - name: Verify health
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL_STAGING }}"
+          if [ -z "$URL" ]; then
+            echo "APP_PUBLIC_URL_STAGING not configured, skipping"
+            exit 0
+          fi
+          for i in $(seq 1 20); do
+            HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' "$URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed (attempt $i/20)"
+              exit 0
+            fi
+            echo "Attempt $i/20 — HTTP $HTTP_CODE, retrying in 15s..."
+            sleep 15
+          done
+          echo "Health check did not pass within 300s"
+          exit 1
+
+  # ── Deploy to production (manual approval) ─────────────────────────────
+  deploy-production:
+    name: Deploy → production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment: production
+
+    steps:
+      - name: Deploy to Dokploy (production)
+        run: |
+          curl -sf -X POST \
+            "${{ secrets.DOKPLOY_URL }}/api/trpc/application.deploy" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_SERVICE_ID_PROD }}"}}'
+          echo "Deploy to production triggered"
+
+      - name: Verify health
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL }}"
+          if [ -z "$URL" ]; then
+            echo "APP_PUBLIC_URL not configured, skipping"
+            exit 0
+          fi
+          for i in $(seq 1 20); do
+            HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' "$URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed (attempt $i/20)"
+              exit 0
+            fi
+            echo "Attempt $i/20 — HTTP $HTTP_CODE, retrying in 15s..."
+            sleep 15
+          done
+          echo "Health check did not pass within 300s"
+          exit 1
+
+      - name: Create Grafana deploy annotation
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.GRAFANA_URL }}" ] && [ -n "${{ secrets.GRAFANA_API_TOKEN }}" ]; then
+            curl -sf -X POST "${{ secrets.GRAFANA_URL }}/api/annotations" \
+              -H "Authorization: Bearer ${{ secrets.GRAFANA_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{"text":"Deploy ${{ github.sha }} to production","tags":["deploy","production"]}'
+            echo "Grafana annotation created"
+          else
+            echo "Grafana annotation skipped (secrets not configured)"
+          fi
