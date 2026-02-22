@@ -22,14 +22,19 @@ export class JwtAuthGuard implements CanActivate {
     if (isPublic) return true
 
     const request = context.switchToHttp().getRequest<Request>()
-    const token = request.headers.authorization?.replace('Bearer ', '')
+    const authHeader = request.headers.authorization
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined
 
     if (!token) {
       throw new UnauthorizedException('Unauthorized')
     }
 
+    const secret = this.config.get<string>('JWT_SECRET')
+    if (!secret) {
+      throw new UnauthorizedException('Unauthorized')
+    }
+
     try {
-      const secret = this.config.get<string>('JWT_SECRET') ?? ''
       const payload = this.jwt.verify<Record<string, unknown>>(token, { secret })
       ;(request as unknown as Record<string, unknown>)['user'] = payload
       return true

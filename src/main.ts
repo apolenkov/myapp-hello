@@ -3,6 +3,7 @@ import 'reflect-metadata'
 import { Logger } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import helmet from 'helmet'
 import { Logger as PinoLogger } from 'nestjs-pino'
 
 // instrumentation MUST be imported before AppModule so OTel SDK
@@ -20,6 +21,8 @@ async function bootstrap(): Promise<void> {
     set: (key: string, value: unknown) => void
   }
   expressApp.set('trust proxy', 1)
+  app.use(helmet())
+  app.enableShutdownHooks()
   app.useGlobalFilters(new UnauthorizedExceptionFilter())
 
   const config = new DocumentBuilder()
@@ -43,15 +46,6 @@ async function bootstrap(): Promise<void> {
 
   const nestLogger = new Logger('Bootstrap')
   nestLogger.log(`Server listening on port ${String(port)}`)
-
-  const shutdown = async (signal: string): Promise<void> => {
-    nestLogger.log(`${signal} received — shutting down`)
-    await app.close()
-    process.exit(0)
-  }
-
-  process.on('SIGTERM', () => void shutdown('SIGTERM'))
-  process.on('SIGINT', () => void shutdown('SIGINT'))
 }
 
 void bootstrap()
