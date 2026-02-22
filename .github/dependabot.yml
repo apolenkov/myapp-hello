@@ -5,12 +5,18 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+      day: monday
+    open-pull-requests-limit: 1
     groups:
-      eslint-plugins:
-        patterns: ['eslint*', '*eslint*', 'typescript-eslint*']
+      all-dependencies:
+        patterns: ['*']
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 1
+    groups:
+      all-actions:
+        patterns: ['*']
