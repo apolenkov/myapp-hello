@@ -174,10 +174,10 @@ The project enforces several quality layers:
 Some packages cannot be updated to their absolute latest versions due to peer dependency conflicts.
 Check these before running bulk updates:
 
-| Package             | Pinned    | Blocker                                               |
-| ------------------- | --------- | ----------------------------------------------------- |
-| `eslint`            | `^9.39.3` | `eslint-plugin-import-x` requires `^8.57 \|\| ^9.0`  |
-| `@swc/cli`          | `^0.7.10` | `@nestjs/cli` requires `^0.7.x`                      |
+| Package    | Pinned    | Blocker                                             |
+| ---------- | --------- | --------------------------------------------------- |
+| `eslint`   | `^9.39.3` | `eslint-plugin-import-x` requires `^8.57 \|\| ^9.0` |
+| `@swc/cli` | `^0.7.10` | `@nestjs/cli` requires `^0.7.x`                     |
 
 Additional notes:
 
