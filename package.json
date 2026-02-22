@@ -1,7 +1,8 @@
 {
   "name": "myapp-hello",
   "version": "1.0.0",
-  "description": "Hello World app with NestJS + PostgreSQL",
+  "description": "Production-ready NestJS REST API with PostgreSQL, JWT auth, OpenTelemetry observability, and Docker Swarm deployment",
+  "license": "MIT",
   "main": "dist/main.js",
   "scripts": {
     "start": "node dist/main.js",
