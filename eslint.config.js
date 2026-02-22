@@ -1,7 +1,7 @@
 // @ts-check
 const tseslint = require('typescript-eslint')
 const sonarjs = require('eslint-plugin-sonarjs')
-const unicorn = require('eslint-plugin-unicorn')
+const unicorn = require('eslint-plugin-unicorn').default
 const importX = require('eslint-plugin-import-x')
 const jsdoc = require('eslint-plugin-jsdoc')
 const regexp = require('eslint-plugin-regexp')

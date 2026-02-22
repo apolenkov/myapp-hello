@@ -169,6 +169,23 @@ The project enforces several quality layers:
 - **semantic-release** — automated versioning and changelog generation based on conventional commit
   messages
 
+## Dependency Update Blockers
+
+Some packages cannot be updated to their absolute latest versions due to peer dependency conflicts.
+Check these before running bulk updates:
+
+| Package             | Pinned    | Blocker                                               |
+| ------------------- | --------- | ----------------------------------------------------- |
+| `eslint`            | `^9.39.3` | `eslint-plugin-import-x` requires `^8.57 \|\| ^9.0`  |
+| `@swc/cli`          | `^0.7.10` | `@nestjs/cli` requires `^0.7.x`                      |
+
+Additional notes:
+
+- `eslint-plugin-unicorn` 63+ uses a default export — ESLint CJS config must use
+  `require('eslint-plugin-unicorn').default`
+- `vitest` 4 is ESM-only — add `include: ['src/**/*.test.ts']` to vitest config to prevent
+  CJS `dist/` files from being picked up
+
 ## See Also
 
 - [Architecture](architecture.md) — C4 diagrams and design decisions
