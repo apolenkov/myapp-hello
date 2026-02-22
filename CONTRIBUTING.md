@@ -11,9 +11,9 @@ Thank you for your interest in contributing to myapp-hello!
 ## Development Workflow
 
 ```bash
-npm install
+npm install              # Installs all workspaces (root + apps/* + packages/*)
 cp .env.example .env
-npm run dev
+npm run dev              # Turbo dev mode (watch)
 ```
 
 ## Before Submitting a PR
@@ -21,7 +21,7 @@ npm run dev
 Run the full quality pipeline:
 
 ```bash
-npx tsc --noEmit
+npx tsc --noEmit -p apps/api/tsconfig.json
 npm run format:check
 npm run lint
 npm run test:coverage
@@ -49,7 +49,7 @@ ci(scope): CI/CD changes
 - TypeScript strict mode, no `any`, explicit return types
 - 2 spaces, single quotes, no semicolons, trailing commas (Prettier)
 - kebab-case filenames
-- See [eslint.config.js](eslint.config.js) for full rules
+- See [apps/api/eslint.config.js](apps/api/eslint.config.js) for full rules
 
 ## Architecture
 

@@ -1,9 +1,11 @@
 services:
   app:
-    build: .
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
     ports:
       - '3001:3001'
-    env_file: .env
+    env_file: ../.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -18,7 +20,7 @@ services:
 
   postgres:
     image: postgres:17-alpine
-    env_file: .env
+    env_file: ../.env
     environment:
       POSTGRES_DB: myapp_dev
     healthcheck:

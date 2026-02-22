@@ -8,19 +8,14 @@ const regexp = require('eslint-plugin-regexp')
 const security = require('eslint-plugin-security')
 const n = require('eslint-plugin-n')
 
-module.exports = tseslint.config(
+/**
+ * Base ESLint configuration for myapp monorepo.
+ * Includes TypeScript strict, SonarJS, Unicorn, import, JSDoc, security, regexp, and Node.js rules.
+ */
+const base = [
   // Base TypeScript strict
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
-
-  {
-    languageOptions: {
-      parserOptions: {
-        project: './tsconfig.eslint.json',
-        tsconfigRootDir: __dirname,
-      },
-    },
-  },
 
   // SonarJS — cognitive complexity
   {
@@ -122,29 +117,6 @@ module.exports = tseslint.config(
       ],
     },
   },
+]
 
-  // Test file overrides (NestJS testing APIs return untyped values)
-  {
-    files: ['src/__tests__/**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-unsafe-argument': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      'security/detect-object-injection': 'off',
-    },
-  },
-
-  // Bootstrap file overrides
-  {
-    files: ['src/main.ts'],
-    rules: {
-      'n/no-process-exit': 'off',
-    },
-  },
-
-  // Ignore patterns
-  {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'vitest.config.ts', '*.cjs'],
-  },
-)
+module.exports = { base, tseslint }

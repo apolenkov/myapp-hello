@@ -1,11 +1,17 @@
+# ── Pruner ─────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS pruner
+RUN npm i -g turbo@2
+WORKDIR /app
+COPY . .
+RUN turbo prune @myapp/api --docker
+
 # ── Builder ────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
+COPY --from=pruner /app/out/json/ .
 RUN npm ci
-COPY tsconfig.json nest-cli.json ./
-COPY src ./src
-RUN npm run build
+COPY --from=pruner /app/out/full/ .
+RUN npx turbo run build --filter=@myapp/api
 
 # ── Production ─────────────────────────────────────────────────────────────
 FROM node:22-alpine AS production
@@ -13,21 +19,18 @@ RUN apk add --no-cache dumb-init
 
 WORKDIR /app
 
-# Install production deps as root (npm cache needs home dir)
-COPY package*.json ./
+COPY --from=pruner /app/out/json/ .
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
-# Non-root user (created after npm ci)
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
-COPY --chown=nodejs:nodejs --from=builder /app/dist ./dist
-COPY --chown=nodejs:nodejs migrations ./migrations
+COPY --chown=nodejs:nodejs --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --chown=nodejs:nodejs --from=builder /app/apps/api/migrations ./apps/api/migrations
 
 USER nodejs
-
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "--require", "./dist/instrumentation.js", "dist/main.js"]
+CMD ["node", "--require", "./apps/api/dist/instrumentation.js", "apps/api/dist/main.js"]

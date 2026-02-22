@@ -1,0 +1,63 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Quality Gates ──────────────────────────────────────────────────────
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: TypeScript strict check
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+
+      - name: Prettier check
+        run: npm run format:check
+
+      - name: YAML lint
+        run: pip install yamllint && yamllint .github/
+
+      - name: ESLint
+        run: npx turbo run lint
+
+      - name: Architecture check
+        run: npx turbo run check:arch
+
+  # ── Test ──────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test with coverage
+        run: npx turbo run test:coverage
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false

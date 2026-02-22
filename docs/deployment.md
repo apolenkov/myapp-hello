@@ -5,83 +5,102 @@ procedures, SSL certificate management, and GitHub Secrets setup.
 
 ## CI/CD Pipeline
 
-Every push to `main`, `develop`, or `dev` triggers the GitHub Actions workflow defined in
-`.github/workflows/ci-cd.yml`. The pipeline runs quality gates and tests in parallel before
-deploying.
+The pipeline is split into two workflows:
+
+- **`ci.yml`** — runs on every PR to `main` and on push to `main`. Runs quality gates and tests
+- **`deploy.yml`** — runs on push to `main`. Builds a Docker image, pushes to GHCR, and deploys
+  the same image through dev → staging → production (artifact promotion)
 
 <!-- prettier-ignore -->
 ```mermaid
 %%{init: {theme: 'neutral'}}%%
 flowchart TD
-    push[git push] --> quality[Quality Gates]
-    quality --> ts[TypeScript strict check]
-    quality --> lint[ESLint]
-    quality --> fmt[Prettier check]
-    quality --> yaml[YAML lint]
-    quality --> arch[Architecture check]
-    ts & lint & fmt & yaml & arch --> test[Tests + Coverage]
+    pr[Pull Request] --> ci[ci.yml — Quality Gates]
+    ci --> ts[TypeScript strict check]
+    ci --> lint[ESLint + Architecture]
+    ci --> fmt[Prettier check]
+    ts & lint & fmt --> test[Tests + Coverage]
     test --> codecov[Upload to Codecov]
-    test --> deploy{Branch?}
-    deploy -->|main| prod[Deploy to Production]
-    deploy -->|develop| staging[Deploy to Staging]
-    deploy -->|dev| dev_env[Deploy to Dev]
-    prod --> dokploy_api[Dokploy API trigger]
-    staging --> dokploy_api
-    dev_env --> dokploy_api
+    test --> merge[Merge to main]
+    merge --> deploy[deploy.yml]
+    deploy --> build[Build Docker Image]
+    build --> ghcr[Push to GHCR\nSHA tag + latest]
+    ghcr --> dev_env[Deploy to Dev\nauto]
+    dev_env --> health_dev[Health Check]
+    health_dev --> staging[Deploy to Staging\nmanual approval]
+    staging --> health_stg[Health Check]
+    health_stg --> prod[Deploy to Production\nmanual approval]
+    prod --> health_prod[Health Check]
+    health_prod --> grafana[Grafana Annotation]
 ```
 
-### Pipeline Steps
+### ci.yml Steps
 
-| Step                    | Tool                 | Failure behavior                         |
-| ----------------------- | -------------------- | ---------------------------------------- |
-| TypeScript strict check | `tsc --noEmit`       | Blocks deploy                            |
-| ESLint                  | `eslint src`         | Blocks deploy                            |
-| Prettier check          | `prettier --check .` | Blocks deploy                            |
-| YAML lint               | `yamllint .github/`  | Blocks deploy                            |
-| Architecture check      | `depcruise`          | Blocks deploy                            |
-| Tests                   | `vitest run`         | Blocks deploy                            |
-| Coverage upload         | `codecov-action@v5`  | Non-blocking (`fail_ci_if_error: false`) |
-| Deploy                  | Dokploy REST API     | Blocks on API error                      |
+| Step                    | Tool                   | Failure behavior                         |
+| ----------------------- | ---------------------- | ---------------------------------------- |
+| TypeScript strict check | `tsc --noEmit`         | Blocks merge                             |
+| ESLint                  | `turbo run lint`       | Blocks merge                             |
+| Prettier check          | `prettier --check .`   | Blocks merge                             |
+| YAML lint               | `yamllint .github/`    | Blocks merge                             |
+| Architecture check      | `turbo run check:arch` | Blocks merge                             |
+| Tests                   | `turbo run test`       | Blocks merge                             |
+| Coverage upload         | `codecov-action@v5`    | Non-blocking (`fail_ci_if_error: false`) |
+
+### deploy.yml Steps
+
+| Step                      | Tool             | Failure behavior  |
+| ------------------------- | ---------------- | ----------------- |
+| Build Docker image        | `docker build`   | Blocks deploy     |
+| Push to GHCR              | `docker push`    | Blocks deploy     |
+| Deploy to dev             | Dokploy REST API | Blocks promotion  |
+| Health check (dev)        | `curl /health`   | Blocks promotion  |
+| Deploy to staging         | Dokploy REST API | Requires approval |
+| Health check (staging)    | `curl /health`   | Blocks promotion  |
+| Deploy to production      | Dokploy REST API | Requires approval |
+| Health check (production) | `curl /health`   | Blocks pipeline   |
+| Verify /metrics           | `curl /metrics`  | Non-blocking      |
+| Grafana annotation        | Grafana API      | Non-blocking      |
 
 ## Environments
 
-| Environment | Branch    | External Port | Internal Port | URL                                     |
-| ----------- | --------- | ------------- | ------------- | --------------------------------------- |
-| Production  | `main`    | `:3013`       | `:3001`       | `https://apolenkov.duckdns.org`         |
-| Staging     | `develop` | `:3012`       | `:3001`       | `https://staging.apolenkov.duckdns.org` |
-| Dev         | `dev`     | `:3011`       | `:3001`       | `https://dev.apolenkov.duckdns.org`     |
+| Environment | External Port | Internal Port | URL                                     | Approval |
+| ----------- | ------------- | ------------- | --------------------------------------- | -------- |
+| Production  | `:3013`       | `:3001`       | `https://apolenkov.duckdns.org`         | Manual   |
+| Staging     | `:3012`       | `:3001`       | `https://staging.apolenkov.duckdns.org` | Manual   |
+| Dev         | `:3011`       | `:3001`       | `https://dev.apolenkov.duckdns.org`     | Auto     |
 
-Each environment maps to a separate Dokploy service and a separate PostgreSQL container with its
-own persistent volume.
+All environments deploy from `main` via artifact promotion — the same Docker image (tagged with the
+commit SHA) is promoted through dev → staging → production. Each environment maps to a separate
+Dokploy service and a separate PostgreSQL container with its own persistent volume.
 
 ## Deploy via Git Push
 
-The standard deployment workflow:
+The project uses trunk-based development — all deployments flow from a single `main` branch:
 
 ```bash
-# Deploy to production
-git checkout main
-git merge develop
-git push origin main
+# 1. Create a feature branch
+git checkout -b feat/my-feature main
 
-# Deploy to staging
-git checkout develop
-git push origin develop
+# 2. Make changes, commit, push
+git push origin feat/my-feature
 
-# Deploy to dev environment
-git checkout dev
-git push origin dev
+# 3. Open a PR to main — ci.yml runs quality gates
+gh pr create --base main
+
+# 4. After merge to main — deploy.yml builds and promotes automatically
+#    dev (auto) → staging (manual approval) → production (manual approval)
 ```
 
-The pipeline runs automatically. Monitor progress in the GitHub Actions tab of the repository.
+Monitor progress in the GitHub Actions tab. Staging and production deploys require manual approval
+via GitHub Environments.
 
 ## Manual Deploy via gh CLI
 
 To trigger a deploy without pushing new commits:
 
 ```bash
-# Re-run the last workflow run on a branch
-gh run list --workflow=ci-cd.yml --branch=main --limit=1
+# Re-run the last deploy workflow
+gh run list --workflow=deploy.yml --branch=main --limit=1
 gh run rerun <run-id>
 ```
 
@@ -122,9 +141,9 @@ state.
 
 Database migrations are applied forward-only. If a migration needs to be undone:
 
-1. Write a new migration file in `migrations/` that reverses the change (e.g.,
+1. Write a new migration file in `apps/api/migrations/` that reverses the change (e.g.,
    `002_revert_initial.sql`)
-2. Push to the appropriate branch — it will be applied automatically on next startup
+2. Push to `main` — it will be applied automatically on next deployment
 
 ## SSL Certificate Renewal
 
@@ -223,6 +242,8 @@ The following secrets must be configured in the repository before the pipeline c
 | `GRAFANA_API_TOKEN`          | Grafana API token for deploy annotations (optional)      |
 | `GRAFANA_URL`                | Grafana base URL for deploy annotations (optional)       |
 | `APP_PUBLIC_URL`             | Public app URL for post-deploy /metrics check (optional) |
+| `APP_PUBLIC_URL_DEV`         | Dev environment URL for health check (optional)          |
+| `APP_PUBLIC_URL_STAGING`     | Staging environment URL for health check (optional)      |
 
 Set secrets via the GitHub web UI (**Settings > Secrets and variables > Actions**) or with the
 `gh` CLI:
@@ -234,6 +255,9 @@ gh secret set DOKPLOY_SERVICE_ID_PROD --body "<service-id>"
 gh secret set DOKPLOY_SERVICE_ID_STAGING --body "<service-id>"
 gh secret set DOKPLOY_SERVICE_ID_DEV --body "<service-id>"
 gh secret set CODECOV_TOKEN --body "<codecov-token>"
+gh secret set APP_PUBLIC_URL --body "https://apolenkov.duckdns.org"
+gh secret set APP_PUBLIC_URL_DEV --body "https://dev.apolenkov.duckdns.org"
+gh secret set APP_PUBLIC_URL_STAGING --body "https://staging.apolenkov.duckdns.org"
 ```
 
 ## See Also
