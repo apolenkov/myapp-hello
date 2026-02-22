@@ -18,7 +18,7 @@ by Traefik/Dokploy monitoring.
 
 **Auth required:** No
 
-**Rate limited:** Yes (100 req/min per IP)
+**Rate limited:** No (`@SkipThrottle()` — health checks must not be rejected)
 
 **Response — 200 OK**
 
@@ -88,14 +88,14 @@ metrics (HTTP request duration, request count).
 **Response — 200 OK** (Content-Type: text/plain; version=0.0.4)
 
 ```text
-# HELP http_server_request_duration_seconds Duration of HTTP requests
-# UNIT http_server_request_duration_seconds seconds
-# TYPE http_server_request_duration_seconds histogram
-http_server_request_duration_seconds_bucket{http_method="GET",http_route="/",http_status_code="200",le="0.005"} 1
+# HELP http_request_duration HTTP request duration in seconds
+# UNIT http_request_duration seconds
+# TYPE http_request_duration histogram
+http_request_duration_bucket{method="GET",route="/",status_code="200",le="0.005"} 1
 ...
-# HELP http_server_request_total Total number of HTTP requests
-# TYPE http_server_request_total counter
-http_server_request_total_total{http_method="GET",http_route="/",http_status_code="200"} 1
+# HELP http_requests Total HTTP requests
+# TYPE http_requests counter
+http_requests{method="GET",route="/",status_code="200"} 1
 # HELP target_info Target metadata
 # TYPE target_info gauge
 target_info{service_name="myapp-hello",service_version="1.0.0"} 1
@@ -103,11 +103,11 @@ target_info{service_name="myapp-hello",service_version="1.0.0"} 1
 
 **Key metrics:**
 
-| Metric                                 | Type      | Labels                                          |
-| -------------------------------------- | --------- | ----------------------------------------------- |
-| `http_server_request_duration_seconds` | Histogram | `http_method`, `http_route`, `http_status_code` |
-| `http_server_request_total_total`      | Counter   | `http_method`, `http_route`, `http_status_code` |
-| `target_info`                          | Gauge     | `service_name`, `service_version`               |
+| Metric                  | Type      | Labels                            |
+| ----------------------- | --------- | --------------------------------- |
+| `http_request_duration` | Histogram | `method`, `route`, `status_code`  |
+| `http_requests`         | Counter   | `method`, `route`, `status_code`  |
+| `target_info`           | Gauge     | `service_name`, `service_version` |
 
 **Example:**
 
@@ -205,10 +205,10 @@ Authorization: Bearer <your-jwt-token>
 
 ### Error Responses
 
-| Status | Body                         | Cause                                                 |
-| ------ | ---------------------------- | ----------------------------------------------------- |
-| 401    | `{"error": "Unauthorized"}`  | Missing `Authorization` header                        |
-| 401    | `{"error": "Invalid token"}` | Token expired, malformed, or signed with wrong secret |
+| Status | Body                         | Cause                                                             |
+| ------ | ---------------------------- | ----------------------------------------------------------------- |
+| 401    | `{"error": "Unauthorized"}`  | Missing header, non-Bearer scheme, or `JWT_SECRET` not configured |
+| 401    | `{"error": "Invalid token"}` | Token expired, malformed, or signed with wrong secret             |
 
 ### Environment Variable
 

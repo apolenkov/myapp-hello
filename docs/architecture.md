@@ -49,9 +49,9 @@ System_Boundary(vps, "VPS — Docker Swarm") {
     Container(app_prod, "myapp-hello-prod", "Node.js 22 + NestJS", "Production env, :3013 ext / :3001 int")
     Container(app_staging, "myapp-hello-staging", "Node.js 22 + NestJS", "Staging env, :3012 ext / :3001 int")
     Container(app_dev, "myapp-hello-dev", "Node.js 22 + NestJS", "Dev env, :3011 ext / :3001 int")
-    ContainerDb(pg_prod, "PostgreSQL prod", "PostgreSQL 16", "Production database")
-    ContainerDb(pg_staging, "PostgreSQL staging", "PostgreSQL 16", "Staging database")
-    ContainerDb(pg_dev, "PostgreSQL dev", "PostgreSQL 16", "Dev database")
+    ContainerDb(pg_prod, "PostgreSQL prod", "PostgreSQL 17", "Production database")
+    ContainerDb(pg_staging, "PostgreSQL staging", "PostgreSQL 17", "Staging database")
+    ContainerDb(pg_dev, "PostgreSQL dev", "PostgreSQL 17", "Dev database")
     Container(grafana, "Grafana", "Grafana 11.5", "Dashboards, alerts, :3100")
     Container(prometheus, "Prometheus", "Prometheus v3.2", "Metrics storage, scrape, 30d retention")
     Container(loki, "Loki", "Grafana Loki 3.4", "Log aggregation, TSDB, 30d retention")
@@ -102,7 +102,7 @@ Container_Boundary(app, "myapp-hello — NestJS App") {
     Component(otel, "instrumentation.ts", "OpenTelemetry SDK", "Prometheus exporter, OTLP traces")
     Component(migrate, "database/migrate.ts", "node-postgres", "Run SQL migrations on startup (advisory lock)")
 }
-ContainerDb(postgres, "PostgreSQL", "PostgreSQL 16")
+ContainerDb(postgres, "PostgreSQL", "PostgreSQL 17")
 Container(traefik, "Traefik", "Reverse Proxy")
 Rel(traefik, main, "HTTP :3001")
 Rel(main, app_module, "Bootstrap")
@@ -149,9 +149,9 @@ Deployment_Node(vps, "VPS Ubuntu", "185.239.48.55") {
             ContainerInstance(app_dev, "myapp-hello-dev", "node:22-alpine", "Replicas: 1")
         }
         Deployment_Node(data_layer, "Data Layer") {
-            ContainerInstance(pg_prod, "pg-prod", "postgres:16-alpine", "Volume: pg_prod_data")
-            ContainerInstance(pg_staging, "pg-staging", "postgres:16-alpine", "Volume: pg_staging_data")
-            ContainerInstance(pg_dev, "pg-dev", "postgres:16-alpine", "Volume: pg_dev_data")
+            ContainerInstance(pg_prod, "pg-prod", "postgres:17-alpine", "Volume: pg_prod_data")
+            ContainerInstance(pg_staging, "pg-staging", "postgres:17-alpine", "Volume: pg_staging_data")
+            ContainerInstance(pg_dev, "pg-dev", "postgres:17-alpine", "Volume: pg_dev_data")
         }
         Deployment_Node(obs_layer, "Observability Layer") {
             ContainerInstance(grafana, "Grafana", "grafana:11.5.2", "Port: 3100, dashboards + alerts")
@@ -198,9 +198,9 @@ never runs as root inside the container, limiting the blast radius of any contai
 
 ### Graceful Shutdown
 
-The server listens for `SIGTERM` and `SIGINT`. On shutdown it stops accepting new connections,
-waits for active connections to finish, drains the PostgreSQL connection pool, and exits cleanly.
-A 10-second hard timeout ensures the process eventually exits even if connections hang.
+NestJS built-in `enableShutdownHooks()` handles `SIGTERM` and `SIGINT`. On shutdown, NestJS invokes
+the `OnModuleDestroy` lifecycle hooks (draining the PostgreSQL connection pool via `DatabaseService`)
+and stops accepting new connections.
 
 ### Observability via OpenTelemetry
 

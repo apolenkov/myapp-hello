@@ -31,7 +31,7 @@ docker compose up --build
 
 # 5. Verify the app is running
 curl http://localhost:3001/health
-# {"status":"ok","env":"development","app":"myapp-hello"}
+# {"status":"ok"}
 ```
 
 To run only the app (without Docker), start PostgreSQL separately then:

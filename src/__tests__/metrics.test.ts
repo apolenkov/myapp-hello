@@ -8,49 +8,49 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { prometheusExporter } from '../instrumentation'
 import { AppModule } from '../app.module'
 
-let app: INestApplication
+const ctx = {} as { app: INestApplication }
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
   }).compile()
 
-  app = moduleRef.createNestApplication()
+  ctx.app = moduleRef.createNestApplication()
 
   const metricsHandler = prometheusExporter.getMetricsRequestHandler.bind(prometheusExporter)
-  app.getHttpAdapter().get('/metrics', metricsHandler)
+  ctx.app.getHttpAdapter().get('/metrics', metricsHandler)
 
-  await app.init()
+  await ctx.app.init()
 })
 
 afterAll(async () => {
-  await app.close()
+  await ctx.app.close()
 })
 
 describe('GET /metrics', () => {
   it('should return 200 with prometheus metrics', async () => {
-    const res = await request(app.getHttpServer()).get('/metrics')
+    const res = await request(ctx.app.getHttpServer()).get('/metrics')
 
     expect(res.status).toBe(200)
     expect(res.headers['content-type']).toMatch(/text\/plain/)
   })
 
   it('should include OTel target_info metric', async () => {
-    const res = await request(app.getHttpServer()).get('/metrics')
+    const res = await request(ctx.app.getHttpServer()).get('/metrics')
 
     expect(res.text).toContain('target_info')
   })
 
   it('should include custom http_request_duration metric after making a request', async () => {
-    await request(app.getHttpServer()).get('/')
-    const res = await request(app.getHttpServer()).get('/metrics')
+    await request(ctx.app.getHttpServer()).get('/')
+    const res = await request(ctx.app.getHttpServer()).get('/metrics')
 
     expect(res.text).toContain('http_request_duration')
   })
 
   it('should include custom http_requests_total counter', async () => {
-    await request(app.getHttpServer()).get('/')
-    const res = await request(app.getHttpServer()).get('/metrics')
+    await request(ctx.app.getHttpServer()).get('/')
+    const res = await request(ctx.app.getHttpServer()).get('/metrics')
 
     expect(res.text).toContain('http_requests')
   })

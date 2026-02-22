@@ -1,4 +1,5 @@
 import type { Pool } from 'pg'
+import { Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Test } from '@nestjs/testing'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -66,6 +67,18 @@ describe('DatabaseService — with database', () => {
     vi.spyOn(pool, 'query').mockRejectedValue(new Error('connection refused'))
 
     expect(await service.getStatus()).toBe('error')
+  })
+
+  it('should log error details when pool.query fails', async () => {
+    const service = await createDbService(TEST_DB_URL)
+    const pool = getPool(service)
+
+    vi.spyOn(pool, 'query').mockRejectedValue(new Error('connection refused'))
+    const logSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined)
+
+    await service.getStatus()
+
+    expect(logSpy).toHaveBeenCalled()
   })
 
   it('should close pool on module destroy', async () => {
