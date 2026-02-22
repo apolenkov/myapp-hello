@@ -6,20 +6,14 @@ import helmet from 'helmet'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-// instrumentation MUST be imported before AppModule so OTel SDK
-// registers the PrometheusExporter before custom meters are created
-import { prometheusExporter } from '../instrumentation'
 import { AppModule } from '../app.module'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
+import { createBaseTestApp } from './test-utils'
 
 const ctx = {} as { app: INestApplication }
 
 beforeAll(async () => {
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile()
-
-  ctx.app = moduleRef.createNestApplication()
+  ctx.app = await createBaseTestApp()
   ctx.app.use(helmet())
   ctx.app.useGlobalFilters(new UnauthorizedExceptionFilter())
 
@@ -35,9 +29,6 @@ beforeAll(async () => {
     .get('/openapi.json', (_req: unknown, res: { json: (body: unknown) => void }) => {
       res.json(document)
     })
-
-  const metricsHandler = prometheusExporter.getMetricsRequestHandler.bind(prometheusExporter)
-  ctx.app.getHttpAdapter().get('/metrics', metricsHandler)
 
   await ctx.app.init()
 })

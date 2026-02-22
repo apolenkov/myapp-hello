@@ -1,25 +1,13 @@
 import type { INestApplication } from '@nestjs/common'
-import { Test } from '@nestjs/testing'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-// instrumentation MUST be imported before AppModule so OTel SDK
-// registers the PrometheusExporter before custom meters are created
-import { prometheusExporter } from '../instrumentation'
-import { AppModule } from '../app.module'
+import { createBaseTestApp } from './test-utils'
 
 const ctx = {} as { app: INestApplication }
 
 beforeAll(async () => {
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile()
-
-  ctx.app = moduleRef.createNestApplication()
-
-  const metricsHandler = prometheusExporter.getMetricsRequestHandler.bind(prometheusExporter)
-  ctx.app.getHttpAdapter().get('/metrics', metricsHandler)
-
+  ctx.app = await createBaseTestApp()
   await ctx.app.init()
 })
 
