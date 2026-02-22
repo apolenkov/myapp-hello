@@ -98,14 +98,29 @@ jobs:
             -d "{\"json\":{\"applicationId\":\"${{ steps.resolve.outputs.service_id }}\"}}"
           echo "Deploy triggered ✓"
 
-      - name: Verify /metrics endpoint
+      - name: Verify deployment health
         if: always()
         continue-on-error: true
         run: |
-          sleep 30
-          curl -sf "${{ secrets.APP_PUBLIC_URL }}/metrics" | head -5 \
-            && echo "Metrics endpoint OK" \
-            || echo "Metrics endpoint not reachable (non-blocking)"
+          echo "Polling health endpoint until new deployment is ready..."
+          URL="${{ secrets.APP_PUBLIC_URL }}"
+          if [ -z "$URL" ]; then
+            echo "APP_PUBLIC_URL not configured, skipping"
+            exit 0
+          fi
+          MAX_ATTEMPTS=20
+          INTERVAL=15
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' "$URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed on attempt $i/$MAX_ATTEMPTS"
+              curl -sf "$URL/metrics" | head -5 && echo "Metrics OK"
+              exit 0
+            fi
+            echo "Attempt $i/$MAX_ATTEMPTS — HTTP $HTTP_CODE, retrying in ${INTERVAL}s..."
+            sleep "$INTERVAL"
+          done
+          echo "Health check did not pass within $((MAX_ATTEMPTS * INTERVAL))s"
 
       - name: Create Grafana deploy annotation
         if: always()
