@@ -1,0 +1,106 @@
+---
+name: DB Backup
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Action to perform
+        required: true
+        type: choice
+        options:
+          - backup-now
+          - setup-schedules
+
+jobs:
+  # ── Discover PostgreSQL instances ─────────────────────────────────────
+  discover:
+    name: Discover Databases
+    runs-on: ubuntu-latest
+
+    outputs:
+      postgres-json: ${{ steps.list.outputs.postgres_json }}
+
+    steps:
+      - name: List PostgreSQL services
+        id: list
+        run: |
+          RESPONSE=$(curl -sf \
+            "${{ secrets.DOKPLOY_URL }}/api/trpc/postgres.all" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}")
+
+          POSTGRES_JSON=$(echo "$RESPONSE" | jq -c '.result.data.json')
+          COUNT=$(echo "$POSTGRES_JSON" | jq 'length')
+
+          echo "Found $COUNT PostgreSQL instance(s)"
+          echo "$POSTGRES_JSON" | jq '.[].name'
+          echo "postgres_json=$POSTGRES_JSON" >> "$GITHUB_OUTPUT"
+
+  # ── Manual / Scheduled Backup ─────────────────────────────────────────
+  backup-now:
+    name: Backup Now
+    needs: discover
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'backup-now')
+
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.discover.outputs.postgres-json) }}
+
+    steps:
+      - name: Trigger backup for ${{ matrix.name }}
+        run: |
+          echo "Backing up ${{ matrix.name }} (database: ${{ matrix.databaseName }})"
+
+          HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' \
+            "${{ secrets.DOKPLOY_URL }}/api/trpc/backup.manualBackupPostgres" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"json":{"postgresId":"${{ matrix.postgresId }}","databaseName":"${{ matrix.databaseName }}"}}')
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Backup triggered successfully (HTTP $HTTP_CODE)"
+          else
+            echo "::error::Backup failed for ${{ matrix.name }} (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+  # ── Setup Scheduled Backups in Dokploy ────────────────────────────────
+  setup-schedules:
+    name: Setup Backup Schedules
+    needs: discover
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.action == 'setup-schedules'
+
+    steps:
+      - name: Configure daily backups for all databases
+        env:
+          POSTGRES_JSON: ${{ needs.discover.outputs.postgres-json }}
+        run: |
+          echo "$POSTGRES_JSON" | jq -c '.[]' | while read -r PG; do
+            NAME=$(echo "$PG" | jq -r '.name')
+            PG_ID=$(echo "$PG" | jq -r '.postgresId')
+            DB_NAME=$(echo "$PG" | jq -r '.databaseName')
+
+            echo "Setting up daily backup for $NAME (db: $DB_NAME)"
+
+            RESPONSE=$(curl -s -w "\n%{http_code}" \
+              "${{ secrets.DOKPLOY_URL }}/api/trpc/backup.create" \
+              -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"json\":{\"postgresId\":\"$PG_ID\",\"schedule\":\"0 3 * * *\",\"database\":\"$DB_NAME\",\"keepLatestCount\":7,\"enabled\":true}}")
+
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+              echo "Schedule created for $NAME"
+            else
+              echo "::warning::Failed to create schedule for $NAME (HTTP $HTTP_CODE): $BODY"
+            fi
+          done

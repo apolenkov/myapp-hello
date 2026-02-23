@@ -3,6 +3,7 @@ import 'reflect-metadata'
 import { Logger } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import { SentryGlobalFilter } from '@sentry/nestjs/setup'
 import helmet from 'helmet'
 import { Logger as PinoLogger } from 'nestjs-pino'
 
@@ -23,7 +24,7 @@ async function bootstrap(): Promise<void> {
   expressApp.set('trust proxy', 1)
   app.use(helmet())
   app.enableShutdownHooks()
-  app.useGlobalFilters(new UnauthorizedExceptionFilter())
+  app.useGlobalFilters(new SentryGlobalFilter(), new UnauthorizedExceptionFilter())
 
   const config = new DocumentBuilder()
     .setTitle('myapp-hello API')

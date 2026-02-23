@@ -91,7 +91,8 @@ myapp-hello/                          # Turborepo root (npm workspaces)
 - **Docker:** Multi-stage turbo prune build, node:22-alpine, dumb-init, non-root user (nodejs:1001)
 - **PaaS:** Dokploy (Docker Swarm on VPS 185.239.48.55)
 - **Artifact promotion:** Build once → push to GHCR → deploy same image to dev → staging → prod
-- **CI/CD:** GitHub Actions — `ci.yml` (quality + tests) + `deploy.yml` (GHCR + environment cascade)
+- **CI/CD:** GitHub Actions — `ci.yml` (quality + tests) + `deploy.yml` (GHCR + cascade) +
+  `db-backup.yml` (PostgreSQL backups via Dokploy API)
 - **Git workflow:** Trunk-based (single main branch, short-lived feature branches)
 - **Environments:** dev (auto-deploy), staging (manual approval), production (manual approval)
 - **Domain:** apolenkov.duckdns.org (prod), Traefik reverse proxy with Let's Encrypt
@@ -128,10 +129,13 @@ myapp-hello/                          # Turborepo root (npm workspaces)
 - `APP_PUBLIC_URL`, `APP_PUBLIC_URL_DEV`, `APP_PUBLIC_URL_STAGING` — health check URLs per env
 - `GRAFANA_API_TOKEN`, `GRAFANA_URL` — deploy annotations
 - `JWT_SECRET` — auth token signing (runtime env var)
+- `SENTRY_DSN` — Sentry error tracking (runtime env var, no-op when absent)
 
 ## Observability
 
 - **Logging:** nestjs-pino (JSON format, parsed by Promtail)
 - **Metrics:** Prometheus via OTel PrometheusExporter on `/metrics`
 - **Traces:** OTel SDK → Tempo via OTLP (HTTP, Express, PostgreSQL instrumentation)
+- **Errors:** Sentry via `@sentry/nestjs` + `SentrySpanProcessor` (no-op without `SENTRY_DSN`)
 - **Dashboards:** Grafana (app-overview, node-runtime, logs-overview)
+- **DB Backups:** Automated via `db-backup.yml` workflow (Dokploy API, daily cron + manual trigger)
