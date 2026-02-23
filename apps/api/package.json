@@ -32,6 +32,8 @@
     "@opentelemetry/resources": "^2.5.1",
     "@opentelemetry/sdk-node": "^0.212.0",
     "@opentelemetry/semantic-conventions": "^1.39.0",
+    "@sentry/nestjs": "^10.39.0",
+    "@sentry/opentelemetry": "^10.39.0",
     "helmet": "^8.1.0",
     "nestjs-pino": "^4.6.0",
     "pg": "^8.18.0",
