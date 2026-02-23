@@ -89,11 +89,17 @@ jobs:
 
             echo "Setting up daily backup for $NAME (db: $DB_NAME)"
 
+            PAYLOAD=$(jq -nc \
+              --arg pid "$PG_ID" \
+              --arg db "$DB_NAME" \
+              '{"json":{"postgresId":$pid,"schedule":"0 3 * * *",
+                "database":$db,"keepLatestCount":7,"enabled":true}}')
+
             RESPONSE=$(curl -s -w "\n%{http_code}" \
               "${{ secrets.DOKPLOY_URL }}/api/trpc/backup.create" \
               -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
               -H "Content-Type: application/json" \
-              -d "{\"json\":{\"postgresId\":\"$PG_ID\",\"schedule\":\"0 3 * * *\",\"database\":\"$DB_NAME\",\"keepLatestCount\":7,\"enabled\":true}}")
+              -d "$PAYLOAD")
 
             HTTP_CODE=$(echo "$RESPONSE" | tail -1)
             BODY=$(echo "$RESPONSE" | sed '$d')
