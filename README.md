@@ -1,6 +1,6 @@
 # myapp-hello
 
-[![CI/CD](https://img.shields.io/github/actions/workflow/status/apolenkov/myapp-hello/ci-cd.yml?branch=main&label=CI%2FCD&logo=github)](https://github.com/apolenkov/myapp-hello/actions)
+[![CI/CD](https://img.shields.io/github/actions/workflow/status/apolenkov/myapp-hello/ci.yml?branch=main&label=CI%2FCD&logo=github)](https://github.com/apolenkov/myapp-hello/actions)
 [![codecov](https://img.shields.io/codecov/c/github/apolenkov/myapp-hello?logo=codecov)](https://codecov.io/gh/apolenkov/myapp-hello)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -92,13 +92,15 @@ specific endpoints from authentication.
 
 ## Environments
 
-| Environment | Branch    | External Port | URL                                     |
-| ----------- | --------- | ------------- | --------------------------------------- |
-| Production  | `main`    | `:3013`       | `https://apolenkov.duckdns.org`         |
-| Staging     | `develop` | `:3012`       | `https://staging.apolenkov.duckdns.org` |
-| Dev         | `dev`     | `:3011`       | `https://dev.apolenkov.duckdns.org`     |
+| Environment | Branch | External Port | URL                                     |
+| ----------- | ------ | ------------- | --------------------------------------- |
+| Production  | `main` | `:3013`       | `https://apolenkov.duckdns.org`         |
+| Staging     | `main` | `:3012`       | `https://staging.apolenkov.duckdns.org` |
+| Dev         | `main` | `:3011`       | `https://dev.apolenkov.duckdns.org`     |
 
-Each environment has its own PostgreSQL instance and independent configuration.
+All three environments deploy from `main` via artifact promotion — the same Docker image (tagged
+with the commit SHA) is promoted through dev → staging → production. Each environment has its own
+PostgreSQL instance and independent configuration.
 
 ## Documentation
 
@@ -115,7 +117,7 @@ Each environment has its own PostgreSQL instance and independent configuration.
 | Runtime           | Node.js 22 (LTS)                                     |
 | Framework         | NestJS 11 (Express adapter)                          |
 | Language          | TypeScript 5 (strict mode)                           |
-| Database          | PostgreSQL 16/17 via `node-postgres`                 |
+| Database          | PostgreSQL 18 via `node-postgres`                    |
 | Logging           | nestjs-pino (structured JSON via Pino)               |
 | Observability     | OpenTelemetry + Prometheus + Loki + Tempo + Grafana  |
 | Auth              | @nestjs/jwt + global JwtAuthGuard                    |

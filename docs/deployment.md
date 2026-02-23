@@ -5,11 +5,16 @@ procedures, SSL certificate management, and GitHub Secrets setup.
 
 ## CI/CD Pipeline
 
-The pipeline is split into two workflows:
+The pipeline is split into five workflows:
 
 - **`ci.yml`** — runs on every PR to `main` and on push to `main`. Runs quality gates and tests
 - **`deploy.yml`** — runs on push to `main`. Builds a Docker image, pushes to GHCR, and deploys
   the same image through dev → staging → production (artifact promotion)
+- **`db-backup.yml`** — daily PostgreSQL backups (03:00 UTC) to Yandex S3 via Dokploy API. Also
+  supports manual `backup-now` and `setup-schedules` actions
+- **`uptime.yml`** — health checks every 15 minutes for all 3 environments
+- **`cleanup.yml`** — weekly GHCR cleanup (Sunday 02:00 UTC), deletes untagged images keeping last
+  10 versions
 
 <!-- prettier-ignore -->
 ```mermaid
@@ -231,19 +236,24 @@ For details on dashboards, alerts, and adding new services, see the
 
 The following secrets must be configured in the repository before the pipeline can deploy:
 
-| Secret                       | Description                                              |
-| ---------------------------- | -------------------------------------------------------- |
-| `DOKPLOY_URL`                | Dokploy API base URL (e.g., `http://185.239.48.55:3000`) |
-| `DOKPLOY_TOKEN`              | Dokploy API key — generate in Dokploy Settings           |
-| `DOKPLOY_SERVICE_ID_PROD`    | Dokploy application ID for the production service        |
-| `DOKPLOY_SERVICE_ID_STAGING` | Dokploy application ID for the staging service           |
-| `DOKPLOY_SERVICE_ID_DEV`     | Dokploy application ID for the dev service               |
-| `CODECOV_TOKEN`              | Codecov upload token — obtain from codecov.io            |
-| `GRAFANA_API_TOKEN`          | Grafana API token for deploy annotations (optional)      |
-| `GRAFANA_URL`                | Grafana base URL for deploy annotations (optional)       |
-| `APP_PUBLIC_URL`             | Public app URL for post-deploy /metrics check (optional) |
-| `APP_PUBLIC_URL_DEV`         | Dev environment URL for health check (optional)          |
-| `APP_PUBLIC_URL_STAGING`     | Staging environment URL for health check (optional)      |
+| Secret                       | Description                                                 |
+| ---------------------------- | ----------------------------------------------------------- |
+| `DOKPLOY_URL`                | Dokploy API base URL (e.g., `http://185.239.48.55:3000`)    |
+| `DOKPLOY_TOKEN`              | Dokploy API key — generate in Dokploy Settings              |
+| `DOKPLOY_SERVICE_ID_PROD`    | Dokploy application ID for the production service           |
+| `DOKPLOY_SERVICE_ID_STAGING` | Dokploy application ID for the staging service              |
+| `DOKPLOY_SERVICE_ID_DEV`     | Dokploy application ID for the dev service                  |
+| `CODECOV_TOKEN`              | Codecov upload token — obtain from codecov.io               |
+| `GRAFANA_API_TOKEN`          | Grafana API token for deploy annotations (optional)         |
+| `GRAFANA_URL`                | Grafana base URL for deploy annotations (optional)          |
+| `APP_PUBLIC_URL`             | Public app URL for post-deploy /metrics check (optional)    |
+| `APP_PUBLIC_URL_DEV`         | Dev environment URL for health check (optional)             |
+| `APP_PUBLIC_URL_STAGING`     | Staging environment URL for health check (optional)         |
+| `DOKPLOY_DESTINATION_ID`     | Dokploy S3 backup destination ID (for `db-backup.yml`)      |
+| `SENTRY_DSN`                 | Sentry error tracking DSN (runtime env var on Dokploy)      |
+| `SENTRY_AUTH_TOKEN`          | Sentry auth token for CI source maps upload                 |
+| `YANDEX_S3_ACCESS_KEY`       | Yandex Object Storage access key (for Ansible backup setup) |
+| `YANDEX_S3_SECRET_KEY`       | Yandex Object Storage secret key (for Ansible backup setup) |
 
 Set secrets via the GitHub web UI (**Settings > Secrets and variables > Actions**) or with the
 `gh` CLI:
@@ -258,6 +268,11 @@ gh secret set CODECOV_TOKEN --body "<codecov-token>"
 gh secret set APP_PUBLIC_URL --body "https://apolenkov.duckdns.org"
 gh secret set APP_PUBLIC_URL_DEV --body "https://dev.apolenkov.duckdns.org"
 gh secret set APP_PUBLIC_URL_STAGING --body "https://staging.apolenkov.duckdns.org"
+gh secret set DOKPLOY_DESTINATION_ID --body "<destination-id>"
+gh secret set SENTRY_DSN --body "<sentry-dsn>"
+gh secret set SENTRY_AUTH_TOKEN --body "<sentry-auth-token>"
+gh secret set YANDEX_S3_ACCESS_KEY --body "<yandex-access-key>"
+gh secret set YANDEX_S3_SECRET_KEY --body "<yandex-secret-key>"
 ```
 
 ## See Also

@@ -233,9 +233,23 @@ ansible-playbook infra-ansible/playbooks/07-observability.yml \
 
 ## Backup
 
-Grafana persistent data (dashboards, annotations, preferences) is included in the backup script at
-`scripts/backup.sh`. The backup uses `docker run alpine tar` to archive the
-`observability_grafana_data` volume and uploads it to R2 alongside PostgreSQL dumps.
+### PostgreSQL Backups
+
+PostgreSQL databases are backed up daily at 03:00 UTC via the `db-backup.yml` GitHub Actions
+workflow. Backups are stored in Yandex Object Storage (S3-compatible), with 7-copy retention.
+PostgreSQL instances are auto-discovered via the Dokploy `project.all` API — no hardcoded IDs.
+
+Initial setup can be done via Ansible:
+
+```bash
+ansible-playbook infra/ansible/setup-db-backups.yml -e @infra/ansible/vars/secrets.yml
+```
+
+### Grafana Data
+
+Grafana dashboards and alert rules are provisioned from files in `observability/grafana/` and do not
+require backup. Runtime data (annotations, preferences) is stored in the `observability_grafana_data`
+Docker volume on the VPS.
 
 ## Configuration Files
 
