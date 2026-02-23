@@ -1,0 +1,24 @@
+---
+name: GHCR Cleanup
+
+on:
+  schedule:
+    - cron: '0 2 * * 0' # Weekly, Sunday 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    name: Delete old GHCR images
+    runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+
+    steps:
+      - name: Delete old GHCR images
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: myapp-api
+          package-type: container
+          min-versions-to-keep: 10
+          delete-only-untagged-versions: true

@@ -1,0 +1,35 @@
+---
+name: Uptime Monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # Every 15 minutes
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Health check
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - name: prod
+            url: https://apolenkov.duckdns.org
+          - name: staging
+            url: https://staging.apolenkov.duckdns.org
+          - name: dev
+            url: https://dev.apolenkov.duckdns.org
+
+    steps:
+      - name: Health check ${{ matrix.env.name }}
+        run: |
+          URL="${{ matrix.env.url }}/health"
+          HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' \
+            "$URL" --max-time 10 2>/dev/null || echo "000")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::${{ matrix.env.name }} health check failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "${{ matrix.env.name }} OK (HTTP $HTTP_CODE)"
