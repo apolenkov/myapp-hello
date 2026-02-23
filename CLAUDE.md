@@ -126,13 +126,24 @@ myapp-hello/                          # Turborepo root (npm workspaces)
 
 ## Secrets (GitHub Secrets, never commit)
 
-- `DOKPLOY_URL`, `DOKPLOY_TOKEN` — Dokploy API access
-- `DOKPLOY_SERVICE_ID_PROD/STAGING/DEV` — application IDs
-- `CODECOV_TOKEN` — coverage upload
-- `APP_PUBLIC_URL`, `APP_PUBLIC_URL_DEV`, `APP_PUBLIC_URL_STAGING` — health check URLs per env
-- `GRAFANA_API_TOKEN`, `GRAFANA_URL` — deploy annotations
-- `JWT_SECRET` — auth token signing (runtime env var)
-- `SENTRY_DSN` — Sentry error tracking (runtime env var, no-op when absent)
+| Secret                              | Purpose                                        |
+| ----------------------------------- | ---------------------------------------------- |
+| `DOKPLOY_URL`                       | Dokploy API base URL (e.g. `http://<vps>:3000` |
+| `DOKPLOY_TOKEN`                     | Dokploy API key (`x-api-key` header)           |
+| `DOKPLOY_SERVICE_ID_PROD`           | Dokploy application ID — production            |
+| `DOKPLOY_SERVICE_ID_STAGING`        | Dokploy application ID — staging               |
+| `DOKPLOY_SERVICE_ID_DEV`            | Dokploy application ID — dev                   |
+| `DOKPLOY_DESTINATION_ID`            | Dokploy S3 backup destination ID               |
+| `CODECOV_TOKEN`                     | Codecov coverage upload token                  |
+| `APP_PUBLIC_URL`                    | Production health check URL                    |
+| `APP_PUBLIC_URL_STAGING`            | Staging health check URL                       |
+| `APP_PUBLIC_URL_DEV`                | Dev health check URL                           |
+| `SENTRY_DSN`                        | Sentry error tracking DSN (runtime env var)    |
+| `SENTRY_AUTH_TOKEN`                 | Sentry auth token (CI source maps upload)      |
+| `YANDEX_S3_ACCESS_KEY`              | Yandex Object Storage access key               |
+| `YANDEX_S3_SECRET_KEY`              | Yandex Object Storage secret key               |
+| `GRAFANA_API_TOKEN`, `GRAFANA_URL`  | Grafana deploy annotations (optional)          |
+| `JWT_SECRET`                        | Auth token signing (Dokploy env var, not GH)   |
 
 ## Observability
 
@@ -142,3 +153,19 @@ myapp-hello/                          # Turborepo root (npm workspaces)
 - **Errors:** Sentry via `@sentry/nestjs` + `SentrySpanProcessor` (no-op without `SENTRY_DSN`)
 - **Dashboards:** Grafana (app-overview, node-runtime, logs-overview)
 - **DB Backups:** Automated via `db-backup.yml` workflow (Dokploy API, daily cron + manual trigger)
+
+### DB Backup Setup (reproduce on new VPS)
+
+1. **Create S3 bucket** — Yandex Object Storage (or any S3-compatible provider)
+   - Current: bucket `myapp-hellp`, endpoint `https://storage.yandexcloud.net`, region `ru-central1`
+2. **Create service account** with `storage.editor` role, generate static access keys
+3. **Create Dokploy destination** via API or Ansible playbook:
+   ```bash
+   ansible-playbook infra/ansible/setup-db-backups.yml -e @infra/ansible/vars/secrets.yml
+   ```
+4. **Set GitHub Secrets**: `DOKPLOY_DESTINATION_ID`, `YANDEX_S3_ACCESS_KEY`, `YANDEX_S3_SECRET_KEY`
+5. **Run `setup-schedules`** via GitHub Actions (workflow_dispatch) to create backup configs
+6. **Verify**: trigger `backup-now` manually, check S3 bucket for dump files
+
+PostgreSQL instances are auto-discovered via `project.all` API (no hardcoded IDs).
+Backups: daily at 03:00 UTC, retention 7 copies, prefix = postgres service name.
