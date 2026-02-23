@@ -64,11 +64,15 @@ jobs:
         run: |
           IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
           echo "Setting dev to docker source: $IMAGE_TAG"
+          APP_ID="${{ secrets.DOKPLOY_SERVICE_ID_DEV }}"
+          BODY="{\"json\":{\"applicationId\":\"$APP_ID\""
+          BODY="$BODY,\"sourceType\":\"docker\""
+          BODY="$BODY,\"dockerImage\":\"$IMAGE_TAG\"}}"
           curl -sf -X POST \
             "${{ secrets.DOKPLOY_URL }}/api/trpc/application.update" \
             -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"json\":{\"applicationId\":\"${{ secrets.DOKPLOY_SERVICE_ID_DEV }}\",\"sourceType\":\"docker\",\"dockerImage\":\"$IMAGE_TAG\"}}"
+            -d "$BODY"
 
       - name: Deploy to Dokploy (dev)
         run: |
@@ -110,11 +114,15 @@ jobs:
         run: |
           IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
           echo "Setting staging to docker source: $IMAGE_TAG"
+          APP_ID="${{ secrets.DOKPLOY_SERVICE_ID_STAGING }}"
+          BODY="{\"json\":{\"applicationId\":\"$APP_ID\""
+          BODY="$BODY,\"sourceType\":\"docker\""
+          BODY="$BODY,\"dockerImage\":\"$IMAGE_TAG\"}}"
           curl -sf -X POST \
             "${{ secrets.DOKPLOY_URL }}/api/trpc/application.update" \
             -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"json\":{\"applicationId\":\"${{ secrets.DOKPLOY_SERVICE_ID_STAGING }}\",\"sourceType\":\"docker\",\"dockerImage\":\"$IMAGE_TAG\"}}"
+            -d "$BODY"
 
       - name: Deploy to Dokploy (staging)
         run: |
@@ -156,11 +164,15 @@ jobs:
         run: |
           IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
           echo "Setting production to docker source: $IMAGE_TAG"
+          APP_ID="${{ secrets.DOKPLOY_SERVICE_ID_PROD }}"
+          BODY="{\"json\":{\"applicationId\":\"$APP_ID\""
+          BODY="$BODY,\"sourceType\":\"docker\""
+          BODY="$BODY,\"dockerImage\":\"$IMAGE_TAG\"}}"
           curl -sf -X POST \
             "${{ secrets.DOKPLOY_URL }}/api/trpc/application.update" \
             -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"json\":{\"applicationId\":\"${{ secrets.DOKPLOY_SERVICE_ID_PROD }}\",\"sourceType\":\"docker\",\"dockerImage\":\"$IMAGE_TAG\"}}"
+            -d "$BODY"
 
       - name: Deploy to Dokploy (production)
         run: |
