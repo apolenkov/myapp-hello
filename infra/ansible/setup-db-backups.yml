@@ -1,0 +1,217 @@
+---
+# Ansible playbook: configure PostgreSQL backups via Dokploy API
+#
+# Prerequisites:
+#   - S3-compatible storage (Yandex Object Storage, AWS S3, MinIO, etc.)
+#   - Dokploy instance with PostgreSQL services deployed
+#
+# Usage:
+#   ansible-playbook infra/ansible/setup-db-backups.yml \
+#     -e dokploy_url=http://185.239.48.55:3000 \
+#     -e dokploy_token=<token> \
+#     -e s3_access_key=<key> \
+#     -e s3_secret_key=<secret> \
+#     -e s3_bucket=myapp-hellp \
+#     -e s3_endpoint=https://storage.yandexcloud.net \
+#     -e s3_region=ru-central1
+#
+# Or use a vars file:
+#   ansible-playbook infra/ansible/setup-db-backups.yml \
+#     -e @infra/ansible/vars/secrets.yml
+
+- name: Setup PostgreSQL backups via Dokploy API
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    backup_schedule: '0 3 * * *'
+    backup_keep_count: 7
+    destination_name: 'yandex-s3-backups'
+
+  tasks:
+    # ── Step 1: Create or find S3 destination ─────────────────────────
+    - name: Check existing destinations
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/destination.all'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      register: destinations_resp
+
+    - name: Find existing destination by name
+      ansible.builtin.set_fact:
+        existing_destination: >-
+          {{ destinations_resp.json.result.data.json
+             | selectattr('name', 'equalto', destination_name)
+             | list | first | default(None) }}
+
+    - name: Create S3 destination
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/destination.create'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            name: '{{ destination_name }}'
+            provider: 's3'
+            accessKey: '{{ s3_access_key }}'
+            secretAccessKey: '{{ s3_secret_key }}'
+            bucket: '{{ s3_bucket }}'
+            region: '{{ s3_region }}'
+            endpoint: '{{ s3_endpoint }}'
+        status_code: [200, 201]
+        return_content: true
+      register: create_dest_resp
+      when: existing_destination is none
+
+    - name: Set destination ID
+      ansible.builtin.set_fact:
+        destination_id: >-
+          {{ existing_destination.destinationId
+             if existing_destination is not none
+             else create_dest_resp.json.result.data.json.destinationId }}
+
+    - name: Show destination ID
+      ansible.builtin.debug:
+        msg: 'Destination ID: {{ destination_id }}'
+
+    # ── Step 2: Discover PostgreSQL instances ─────────────────────────
+    - name: Fetch all projects
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/project.all'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      register: projects_resp
+
+    - name: Extract PostgreSQL instances
+      ansible.builtin.set_fact:
+        postgres_instances: >-
+          {{ projects_resp.json.result.data.json
+             | map(attribute='environments') | flatten
+             | map(attribute='postgres') | flatten
+             | map('dict2items')
+             | map('selectattr', 'key', 'in', ['postgresId', 'name', 'databaseName'])
+             | map('items2dict')
+             | list }}
+
+    - name: Show discovered instances
+      ansible.builtin.debug:
+        msg: "Found {{ postgres_instances | length }} PostgreSQL instance(s): {{ postgres_instances | map(attribute='name') | list }}"
+
+    # ── Step 3: Check existing backup configs ─────────────────────────
+    - name: Fetch details for each PostgreSQL instance
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/postgres.one?input={{ query | to_json | urlencode }}'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      vars:
+        query:
+          json:
+            postgresId: '{{ item.postgresId }}'
+      loop: '{{ postgres_instances }}'
+      loop_control:
+        label: '{{ item.name }}'
+      register: pg_details
+
+    - name: Build list of instances needing backup config
+      ansible.builtin.set_fact:
+        instances_needing_backup: >-
+          {{ pg_details.results
+             | selectattr('json.result.data.json.backups', 'equalto', [])
+             | map(attribute='item')
+             | list }}
+
+    - name: Show status
+      ansible.builtin.debug:
+        msg: >-
+          {{ instances_needing_backup | length }} instance(s) need backup config:
+          {{ instances_needing_backup | map(attribute='name') | list }}
+
+    # ── Step 4: Create backup configs ─────────────────────────────────
+    - name: Create backup config for each instance
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/backup.create'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            postgresId: '{{ item.postgresId }}'
+            schedule: '{{ backup_schedule }}'
+            database: '{{ item.databaseName }}'
+            prefix: '{{ item.name }}'
+            destinationId: '{{ destination_id }}'
+            databaseType: 'postgres'
+            keepLatestCount: '{{ backup_keep_count }}'
+            enabled: true
+        status_code: [200, 201]
+        return_content: true
+      loop: '{{ instances_needing_backup }}'
+      loop_control:
+        label: '{{ item.name }}'
+      register: backup_configs
+
+    - name: Show results
+      ansible.builtin.debug:
+        msg: 'Backup config created for {{ item.item.name }}'
+      loop: '{{ backup_configs.results | default([]) }}'
+      loop_control:
+        label: '{{ item.item.name }}'
+      when: backup_configs.results is defined
+
+    # ── Step 5: Trigger test backup ───────────────────────────────────
+    - name: Fetch updated details to get backup IDs
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/postgres.one?input={{ query | to_json | urlencode }}'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      vars:
+        query:
+          json:
+            postgresId: '{{ item.postgresId }}'
+      loop: '{{ postgres_instances }}'
+      loop_control:
+        label: '{{ item.name }}'
+      register: pg_final
+      tags: [test-backup]
+
+    - name: Trigger manual backup for each instance
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/backup.manualBackupPostgres'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            backupId: '{{ item.json.result.data.json.backups[0].backupId }}'
+        status_code: [200, 201]
+      loop: '{{ pg_final.results }}'
+      loop_control:
+        label: '{{ item.item.name }}'
+      when: item.json.result.data.json.backups | length > 0
+      tags: [test-backup]
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: |
+          Setup complete:
+            - Destination: {{ destination_name }} ({{ destination_id }})
+            - Instances: {{ postgres_instances | map(attribute='name') | join(', ') }}
+            - Schedule: {{ backup_schedule }}
+            - Retention: {{ backup_keep_count }} backups
+          Manual backups triggered for all instances.

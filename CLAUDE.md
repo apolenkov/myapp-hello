@@ -50,6 +50,9 @@ myapp-hello/                          # Turborepo root (npm workspaces)
     typescript-config/                # @myapp/typescript-config — shared tsconfig presets
   infra/
     docker-compose.yml                # Local dev (PostgreSQL, Grafana stack)
+    ansible/
+      setup-db-backups.yml            # Dokploy backup setup (S3 destination + configs)
+      vars/secrets.yml.example        # Template for secrets (copy to secrets.yml)
   scripts/
     setup-ghcr-dokploy.sh            # Switch Dokploy apps to GHCR docker source
 ```
