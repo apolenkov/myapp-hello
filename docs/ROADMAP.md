@@ -17,6 +17,9 @@ Post-migration infrastructure hardening and feature roadmap.
 - [x] Added engines field to package.json
 - [x] Sentry integration (`@sentry/nestjs` + source maps)
 - [x] Grafana dashboards (app-overview, node-runtime, logs-overview)
+- [x] OTel exporter error handling (try-catch + graceful fallback in `instrumentation.ts`)
+- [x] Rate limiting configuration (env vars `THROTTLE_TTL`, `THROTTLE_LIMIT` via ConfigService)
+- [x] Database pool hardening (max 20, idleTimeoutMillis 30s)
 
 ## High Priority
 
@@ -28,18 +31,6 @@ Current passwords are weak (`*_secret_123`). Requires manual Dokploy UI work:
 2. Update `DATABASE_URL` in app env vars
 3. Redeploy each environment
 4. Verify `/health` returns `db: connected`
-
-### OTel Exporter Error Handling
-
-`instrumentation.ts:39-41` — no error handling if `OTEL_EXPORTER_OTLP_ENDPOINT` is unreachable.
-Add try-catch around `OTLPTraceExporter` initialization with graceful fallback.
-
-### Rate Limiting Configuration
-
-`app.module.ts:28-33` — throttler TTL (60s) and limit (100) are hardcoded. Extract to env vars:
-
-- `THROTTLE_TTL` (default: 60000)
-- `THROTTLE_LIMIT` (default: 100)
 
 ## Medium Priority
 
