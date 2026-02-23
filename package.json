@@ -20,6 +20,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "dev": "turbo run dev",
+    "dev:docker": "docker compose -f infra/docker-compose.yml up --build",
+    "dev:db": "docker compose -f infra/docker-compose.yml up postgres",
     "prepare": "husky"
   },
   "devDependencies": {

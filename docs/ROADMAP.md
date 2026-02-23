@@ -21,6 +21,7 @@ Post-migration infrastructure hardening and feature roadmap.
 - [x] Rate limiting configuration (env vars `THROTTLE_TTL`, `THROTTLE_LIMIT` via ConfigService)
 - [x] Database pool hardening (max 20, idleTimeoutMillis 30s)
 - [x] Docker build caching (buildx + GitHub Actions cache in deploy.yml)
+- [x] Local dev DX scripts (`npm run dev:docker`, `npm run dev:db`)
 
 ## High Priority
 
@@ -50,11 +51,6 @@ Prepare for breaking changes:
 
 - Add `/v1/` prefix to routes
 - Document versioning strategy in CLAUDE.md
-
-### Local Development DX
-
-- Document `docker-compose up` → `npm run dev` workflow in README
-- Add `npm run dev:docker` script for one-command local start
 
 ## Low Priority
 
