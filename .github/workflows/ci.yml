@@ -35,6 +35,9 @@ jobs:
       - name: ESLint
         run: npx turbo run lint
 
+      - name: Build
+        run: npx turbo run build
+
       - name: Architecture check
         run: npx turbo run check:arch
 
