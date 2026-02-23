@@ -20,6 +20,7 @@ Post-migration infrastructure hardening and feature roadmap.
 - [x] OTel exporter error handling (try-catch + graceful fallback in `instrumentation.ts`)
 - [x] Rate limiting configuration (env vars `THROTTLE_TTL`, `THROTTLE_LIMIT` via ConfigService)
 - [x] Database pool hardening (max 20, idleTimeoutMillis 30s)
+- [x] Docker build caching (buildx + GitHub Actions cache in deploy.yml)
 
 ## High Priority
 
@@ -49,13 +50,6 @@ Prepare for breaking changes:
 
 - Add `/v1/` prefix to routes
 - Document versioning strategy in CLAUDE.md
-
-### Docker Build Caching
-
-Optimize CI build times:
-
-- Add `cache-from` / `cache-to` in `docker/build-push-action`
-- Use GitHub Actions cache for Docker layers
 
 ### Local Development DX
 
