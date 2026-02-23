@@ -22,6 +22,7 @@ Post-migration infrastructure hardening and feature roadmap.
 - [x] Database pool hardening (max 20, idleTimeoutMillis 30s)
 - [x] Docker build caching (buildx + GitHub Actions cache in deploy.yml)
 - [x] Local dev DX scripts (`npm run dev:docker`, `npm run dev:db`)
+- [x] npm audit in CI (security audit gate in quality job)
 
 ## High Priority
 
