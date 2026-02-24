@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common'
+import { VersioningType } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 
 // instrumentation MUST be imported before AppModule so OTel SDK
@@ -13,6 +14,8 @@ export async function createBaseTestApp(): Promise<INestApplication> {
   }).compile()
 
   const app = moduleRef.createNestApplication()
+
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
 
   const metricsHandler = prometheusExporter.getMetricsRequestHandler.bind(prometheusExporter)
   app.getHttpAdapter().get('/metrics', metricsHandler)

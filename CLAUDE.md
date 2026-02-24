@@ -116,17 +116,26 @@ myapp-hello/                          # Turborepo root (npm workspaces)
 - **DB timeouts:** connectionTimeoutMillis 30s, statement_timeout 30s, graceful shutdown 10s
 - **Semantic release:** Runs after quality+test gates on main push (`ci.yml` release job)
 
+## API Versioning
+
+URI-based versioning via `app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })`.
+
+- **Business routes** get `/v1/` prefix automatically (default version)
+- **Infrastructure endpoints** (`/health`, `/metrics`, `/docs`, `/openapi.json`) use
+  `VERSION_NEUTRAL` or are registered on the HTTP adapter directly — no version prefix
+- New API versions: add `@Version('2')` to new controllers/methods, keep v1 unchanged
+
 ## API Contracts (must NOT change)
 
-| Endpoint            | Response                                    |
-| ------------------- | ------------------------------------------- |
-| `GET /health`       | `{ status: 'ok' }` (public)                 |
-| `GET /`             | `{ message, env, app, db, ... }`            |
-| `GET /metrics`      | Prometheus text format (public)             |
-| `GET /openapi.json` | OpenAPI 3.0 spec                            |
-| `GET /docs`         | Swagger UI                                  |
-| Auth 401            | `{ error: 'Unauthorized' }`                 |
-| Rate limit          | `x-ratelimit-limit/remaining/reset` headers |
+| Endpoint            | Response                                     |
+| ------------------- | -------------------------------------------- |
+| `GET /health`       | `{ status: 'ok' }` (public, unversioned)     |
+| `GET /v1`           | `{ message, env, app, db, ... }`             |
+| `GET /metrics`      | Prometheus text format (public, unversioned) |
+| `GET /openapi.json` | OpenAPI 3.0 spec (unversioned)               |
+| `GET /docs`         | Swagger UI (unversioned)                     |
+| Auth 401            | `{ error: 'Unauthorized' }`                  |
+| Rate limit          | `x-ratelimit-limit/remaining/reset` headers  |
 
 ## Secrets (GitHub Secrets, never commit)
 

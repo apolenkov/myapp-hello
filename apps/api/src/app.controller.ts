@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common'
+import { Controller, Get, Version, VERSION_NEUTRAL } from '@nestjs/common'
 import { ApiOperation, ApiResponse } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
 
@@ -10,6 +10,7 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get('health')
+  @Version(VERSION_NEUTRAL)
   @Public()
   @SkipThrottle()
   @ApiOperation({ summary: 'Health check' })
