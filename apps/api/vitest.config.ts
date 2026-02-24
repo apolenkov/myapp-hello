@@ -19,6 +19,8 @@ export default defineConfig({
         'src/instrumentation.ts',
         'src/db/migrate.ts',
         'src/config/**',
+        'src/__tests__/**',
+        'src/**/*.module.ts',
         '**/*.d.ts',
         'dist/**',
       ],

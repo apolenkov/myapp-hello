@@ -95,17 +95,17 @@ npm run dev
 
 ### Основные команды
 
-| Команда | Что делает |
-|---------|------------|
-| `npm run build` | Собирает все пакеты через Turbo |
-| `npm run dev` | Запускает dev-сервер (watch mode) |
-| `npm test` | Запускает тесты (Vitest, без coverage) |
-| `npm run test:coverage` | Тесты с покрытием (пороги: 90/85/90/90) |
-| `npm run lint` | ESLint проверка |
-| `npm run format:check` | Prettier проверка (dry-run) |
-| `npm run check:arch` | Проверка архитектурных зависимостей |
-| `npm run dev:docker` | Полный стек (API + PostgreSQL) через Docker |
-| `npm run dev:db` | Только PostgreSQL через Docker |
+| Команда                 | Что делает                                  |
+| ----------------------- | ------------------------------------------- |
+| `npm run build`         | Собирает все пакеты через Turbo             |
+| `npm run dev`           | Запускает dev-сервер (watch mode)           |
+| `npm test`              | Запускает тесты (Vitest, без coverage)      |
+| `npm run test:coverage` | Тесты с покрытием (пороги: 90/85/90/90)     |
+| `npm run lint`          | ESLint проверка                             |
+| `npm run format:check`  | Prettier проверка (dry-run)                 |
+| `npm run check:arch`    | Проверка архитектурных зависимостей         |
+| `npm run dev:docker`    | Полный стек (API + PostgreSQL) через Docker |
+| `npm run dev:db`        | Только PostgreSQL через Docker              |
 
 ### Pre-commit хуки
 
@@ -124,13 +124,13 @@ npm run dev
 
 ### Публичные
 
-| Эндпоинт | Метод | Описание | Пример ответа |
-|----------|-------|----------|---------------|
-| `/health` | GET | Статус сервиса | `{ "status": "ok" }` |
-| `/v1` | GET | Информация о приложении | `{ "message": "...", "env": "production", "app": "myapp-hello", "db": "connected", "timestamp": "..." }` |
-| `/metrics` | GET | Prometheus-метрики | Текстовый формат Prometheus |
-| `/docs` | GET | Swagger UI | HTML-страница |
-| `/openapi.json` | GET | OpenAPI 3.0 спецификация | JSON |
+| Эндпоинт        | Метод | Описание                 | Пример ответа                                                                                            |
+| --------------- | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `/health`       | GET   | Статус сервиса           | `{ "status": "ok" }`                                                                                     |
+| `/v1`           | GET   | Информация о приложении  | `{ "message": "...", "env": "production", "app": "myapp-hello", "db": "connected", "timestamp": "..." }` |
+| `/metrics`      | GET   | Prometheus-метрики       | Текстовый формат Prometheus                                                                              |
+| `/docs`         | GET   | Swagger UI               | HTML-страница                                                                                            |
+| `/openapi.json` | GET   | OpenAPI 3.0 спецификация | JSON                                                                                                     |
 
 ### Проверка вручную
 
@@ -204,11 +204,11 @@ curl -s -H "Authorization: Bearer invalid-token" https://apolenkov.duckdns.org/v
 
 Три отдельных инстанса (по одному на окружение):
 
-| Окружение | Хост | БД | Пользователь |
-|-----------|------|----|-------------|
-| prod | postgres-prod | myapp_prod | prod_user |
-| staging | postgres-staging | myapp_staging | staging_user |
-| dev | postgres-dev | myapp_dev | dev_user |
+| Окружение | Хост             | БД            | Пользователь |
+| --------- | ---------------- | ------------- | ------------ |
+| prod      | postgres-prod    | myapp_prod    | prod_user    |
+| staging   | postgres-staging | myapp_staging | staging_user |
+| dev       | postgres-dev     | myapp_dev     | dev_user     |
 
 ### Подключение
 
@@ -284,13 +284,13 @@ Push в main
 
 ### Воркфлоу-файлы
 
-| Файл | Расписание | Назначение |
-|------|-----------|------------|
-| `ci.yml` | На каждый push/PR | Quality gates + тесты + релиз |
-| `deploy.yml` | После успешного CI | Сборка образа + деплой на 3 окружения |
-| `uptime.yml` | Каждые 15 минут | Проверка доступности всех окружений |
-| `db-backup.yml` | Ежедневно 03:00 UTC | Бэкап PostgreSQL в S3 |
-| `cleanup.yml` | Воскресенье 02:00 UTC | Очистка старых Docker-образов в GHCR |
+| Файл            | Расписание            | Назначение                            |
+| --------------- | --------------------- | ------------------------------------- |
+| `ci.yml`        | На каждый push/PR     | Quality gates + тесты + релиз         |
+| `deploy.yml`    | После успешного CI    | Сборка образа + деплой на 3 окружения |
+| `uptime.yml`    | Каждые 15 минут       | Проверка доступности всех окружений   |
+| `db-backup.yml` | Ежедневно 03:00 UTC   | Бэкап PostgreSQL в S3                 |
+| `cleanup.yml`   | Воскресенье 02:00 UTC | Очистка старых Docker-образов в GHCR  |
 
 ### Как проверить
 
@@ -317,11 +317,11 @@ gh run view <run-id> --log-failed
 
 ### Три окружения
 
-| Окружение | URL | Деплой | LOG_LEVEL |
-|-----------|-----|--------|-----------|
-| **prod** | https://apolenkov.duckdns.org | Ручное одобрение | warn |
-| **staging** | https://staging.apolenkov.duckdns.org | Ручное одобрение | info |
-| **dev** | https://dev.apolenkov.duckdns.org | Автоматический | debug |
+| Окружение   | URL                                   | Деплой           | LOG_LEVEL |
+| ----------- | ------------------------------------- | ---------------- | --------- |
+| **prod**    | https://apolenkov.duckdns.org         | Ручное одобрение | warn      |
+| **staging** | https://staging.apolenkov.duckdns.org | Ручное одобрение | info      |
+| **dev**     | https://dev.apolenkov.duckdns.org     | Автоматический   | debug     |
 
 ### Инфраструктура
 
@@ -357,15 +357,15 @@ open http://185.239.48.55:3000
 
 ### Env-переменные на каждом окружении
 
-| Переменная | Описание | Где хранится |
-|------------|----------|-------------|
-| `NODE_ENV` | production / staging / development | Dokploy env |
-| `APP_NAME` | myapp-hello | Dokploy env |
-| `PORT` | 3001 | Dokploy env |
-| `DATABASE_URL` | postgresql://... | Dokploy env + Ansible Vault |
-| `JWT_SECRET` | 64 символа, уникальный | Dokploy env + Ansible Vault |
-| `SENTRY_DSN` | https://...@sentry.io/... | Dokploy env + Ansible Vault |
-| `LOG_LEVEL` | warn / info / debug | Dokploy env |
+| Переменная     | Описание                           | Где хранится                |
+| -------------- | ---------------------------------- | --------------------------- |
+| `NODE_ENV`     | production / staging / development | Dokploy env                 |
+| `APP_NAME`     | myapp-hello                        | Dokploy env                 |
+| `PORT`         | 3001                               | Dokploy env                 |
+| `DATABASE_URL` | postgresql://...                   | Dokploy env + Ansible Vault |
+| `JWT_SECRET`   | 64 символа, уникальный             | Dokploy env + Ansible Vault |
+| `SENTRY_DSN`   | https://...@sentry.io/...          | Dokploy env + Ansible Vault |
+| `LOG_LEVEL`    | warn / info / debug                | Dokploy env                 |
 
 ---
 
@@ -373,12 +373,12 @@ open http://185.239.48.55:3000
 
 ### Четыре столпа
 
-| Столп | Инструмент | Эндпоинт/Порт |
-|-------|-----------|---------------|
-| **Логи** | nestjs-pino → Promtail → Loki | Loki :3100 |
-| **Метрики** | OpenTelemetry → Prometheus | `/metrics`, Prometheus :9090 |
-| **Трейсы** | OpenTelemetry → Tempo | Tempo :3200 |
-| **Ошибки** | Sentry (`@sentry/nestjs`) | sentry.io |
+| Столп       | Инструмент                    | Эндпоинт/Порт                |
+| ----------- | ----------------------------- | ---------------------------- |
+| **Логи**    | nestjs-pino → Promtail → Loki | Loki :3100                   |
+| **Метрики** | OpenTelemetry → Prometheus    | `/metrics`, Prometheus :9090 |
+| **Трейсы**  | OpenTelemetry → Tempo         | Tempo :3200                  |
+| **Ошибки**  | Sentry (`@sentry/nestjs`)     | sentry.io                    |
 
 ### Логирование
 
@@ -539,22 +539,22 @@ ansible-playbook infra/ansible/setup-environments.yml \
 
 Секреты хранятся в GitHub Settings → Secrets and Variables → Actions.
 
-| Секрет | Назначение | Где используется |
-|--------|-----------|-----------------|
-| `DOKPLOY_URL` | URL Dokploy API | deploy.yml, db-backup.yml |
-| `DOKPLOY_TOKEN` | API-ключ Dokploy | deploy.yml, db-backup.yml |
-| `DOKPLOY_SERVICE_ID_PROD` | ID приложения (prod) | deploy.yml |
-| `DOKPLOY_SERVICE_ID_STAGING` | ID приложения (staging) | deploy.yml |
-| `DOKPLOY_SERVICE_ID_DEV` | ID приложения (dev) | deploy.yml |
-| `DOKPLOY_DESTINATION_ID` | ID S3-назначения для бэкапов | db-backup.yml |
-| `CODECOV_TOKEN` | Токен Codecov | ci.yml |
-| `APP_PUBLIC_URL` | URL для health check (prod) | deploy.yml |
-| `APP_PUBLIC_URL_STAGING` | URL для health check (staging) | deploy.yml |
-| `APP_PUBLIC_URL_DEV` | URL для health check (dev) | deploy.yml |
-| `SENTRY_DSN` | DSN Sentry | deploy.yml (env var) |
-| `SENTRY_AUTH_TOKEN` | Auth-токен Sentry (для source maps) | ci.yml |
-| `YANDEX_S3_ACCESS_KEY` | Ключ Yandex Object Storage | db-backup.yml |
-| `YANDEX_S3_SECRET_KEY` | Секретный ключ Yandex S3 | db-backup.yml |
+| Секрет                       | Назначение                          | Где используется          |
+| ---------------------------- | ----------------------------------- | ------------------------- |
+| `DOKPLOY_URL`                | URL Dokploy API                     | deploy.yml, db-backup.yml |
+| `DOKPLOY_TOKEN`              | API-ключ Dokploy                    | deploy.yml, db-backup.yml |
+| `DOKPLOY_SERVICE_ID_PROD`    | ID приложения (prod)                | deploy.yml                |
+| `DOKPLOY_SERVICE_ID_STAGING` | ID приложения (staging)             | deploy.yml                |
+| `DOKPLOY_SERVICE_ID_DEV`     | ID приложения (dev)                 | deploy.yml                |
+| `DOKPLOY_DESTINATION_ID`     | ID S3-назначения для бэкапов        | db-backup.yml             |
+| `CODECOV_TOKEN`              | Токен Codecov                       | ci.yml                    |
+| `APP_PUBLIC_URL`             | URL для health check (prod)         | deploy.yml                |
+| `APP_PUBLIC_URL_STAGING`     | URL для health check (staging)      | deploy.yml                |
+| `APP_PUBLIC_URL_DEV`         | URL для health check (dev)          | deploy.yml                |
+| `SENTRY_DSN`                 | DSN Sentry                          | deploy.yml (env var)      |
+| `SENTRY_AUTH_TOKEN`          | Auth-токен Sentry (для source maps) | ci.yml                    |
+| `YANDEX_S3_ACCESS_KEY`       | Ключ Yandex Object Storage          | db-backup.yml             |
+| `YANDEX_S3_SECRET_KEY`       | Секретный ключ Yandex S3            | db-backup.yml             |
 
 ### Проверка
 
@@ -696,15 +696,15 @@ git commit -m "fix: apply formatting from pre-commit hook"
 
 ## Словарь терминов
 
-| Термин | Описание |
-|--------|----------|
-| **Turborepo** | Система сборки для monorepo, кеширует результаты |
-| **NestJS** | Node.js фреймворк (модули, DI, декораторы) |
-| **Dokploy** | Self-hosted PaaS (аналог Heroku) на Docker Swarm |
-| **GHCR** | GitHub Container Registry — хранилище Docker-образов |
-| **Artifact Promotion** | Один образ деплоится на все окружения |
-| **Traefik** | Reverse proxy с автоматическим Let's Encrypt |
-| **OpenTelemetry (OTel)** | Стандарт наблюдаемости (метрики, трейсы, логи) |
-| **Ansible Vault** | Шифрование файлов с секретами |
-| **Advisory Lock** | PostgreSQL-механизм для предотвращения параллельных миграций |
-| **Semantic Release** | Автоматическое версионирование по conventional commits |
+| Термин                   | Описание                                                     |
+| ------------------------ | ------------------------------------------------------------ |
+| **Turborepo**            | Система сборки для monorepo, кеширует результаты             |
+| **NestJS**               | Node.js фреймворк (модули, DI, декораторы)                   |
+| **Dokploy**              | Self-hosted PaaS (аналог Heroku) на Docker Swarm             |
+| **GHCR**                 | GitHub Container Registry — хранилище Docker-образов         |
+| **Artifact Promotion**   | Один образ деплоится на все окружения                        |
+| **Traefik**              | Reverse proxy с автоматическим Let's Encrypt                 |
+| **OpenTelemetry (OTel)** | Стандарт наблюдаемости (метрики, трейсы, логи)               |
+| **Ansible Vault**        | Шифрование файлов с секретами                                |
+| **Advisory Lock**        | PostgreSQL-механизм для предотвращения параллельных миграций |
+| **Semantic Release**     | Автоматическое версионирование по conventional commits       |
