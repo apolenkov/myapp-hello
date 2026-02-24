@@ -3,7 +3,6 @@ dist/
 coverage/
 .env
 *.log
-infra/ansible/vars/secrets.yml
 .DS_Store
 .idea/
 .sisyphus/
