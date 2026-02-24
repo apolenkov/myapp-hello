@@ -17,6 +17,9 @@ RUN npx turbo run build --filter=@myapp/api
 FROM node:22-alpine AS production
 RUN apk add --no-cache dumb-init
 
+ARG SENTRY_RELEASE
+ENV SENTRY_RELEASE=$SENTRY_RELEASE
+
 WORKDIR /app
 
 COPY --from=pruner /app/out/json/ .
