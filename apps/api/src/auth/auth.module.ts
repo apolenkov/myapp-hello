@@ -5,7 +5,7 @@ import { JwtModule } from '@nestjs/jwt'
 import { JwtAuthGuard } from './auth.guard'
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({ signOptions: { expiresIn: '24h' } })],
   providers: [
     {
       provide: APP_GUARD,

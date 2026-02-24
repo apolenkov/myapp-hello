@@ -25,6 +25,13 @@ Post-migration infrastructure hardening and feature roadmap.
 - [x] npm audit in CI (security audit gate in quality job)
 - [x] API versioning (URI prefix `/v1/`, `VERSION_NEUTRAL` for infrastructure endpoints)
 - [x] DevDep update: `@swc/cli` 0.7.x → 0.8.x
+- [x] JWT security hardening (explicit `HS256` algorithm, 24h token expiry)
+- [x] Dockerfile healthcheck fix (`wget` → `node` HTTP one-liner for alpine)
+- [x] CI/CD hardening (npm audit blocking, Codecov `fail_ci_if_error`, deploy waits for CI)
+- [x] Sentry `tracesSampleRate` 0.1 in production (was 1.0)
+- [x] Parameterized query support in `DatabaseService`
+- [x] Uptime workflow secrets (replaced hardcoded URLs)
+- [x] New tests: expired JWT, wrong algorithm, pool shutdown timeout, parameterized queries
 
 ## High Priority
 

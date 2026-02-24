@@ -11,6 +11,7 @@ import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filt
 
 const TEST_SECRET = 'test-secret-for-unit-tests'
 const PROTECTED_ROUTE = '/v1/protected-test'
+const INVALID_TOKEN = 'Invalid token'
 
 @Controller('protected-test')
 class ProtectedTestController {
@@ -66,7 +67,7 @@ describe('Auth Guard', () => {
       .set('Authorization', 'Bearer invalid.token.here')
 
     expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: 'Invalid token' })
+    expect(res.body).toEqual({ error: INVALID_TOKEN })
   })
 
   it('should allow access to @Public() routes without token', async () => {
@@ -106,6 +107,33 @@ describe('Auth Guard', () => {
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ ok: true })
+  })
+
+  it('should return 401 for expired token', async () => {
+    const jwtService = new JwtService({})
+    const token = jwtService.sign(
+      { sub: 'user-123', role: 'admin' },
+      { secret: TEST_SECRET, expiresIn: '0s' },
+    )
+
+    const res = await request(ctx.app.getHttpServer())
+      .get(PROTECTED_ROUTE)
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: INVALID_TOKEN })
+  })
+
+  it('should return 401 for token signed with wrong algorithm', async () => {
+    const jwtService = new JwtService({})
+    const token = jwtService.sign({ sub: 'user-123' }, { secret: TEST_SECRET, algorithm: 'HS384' })
+
+    const res = await request(ctx.app.getHttpServer())
+      .get(PROTECTED_ROUTE)
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: INVALID_TOKEN })
   })
 })
 

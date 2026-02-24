@@ -7,29 +7,47 @@ on:
   workflow_dispatch:
 
 jobs:
-  check:
-    name: Health check
+  check-prod:
+    name: Health check prod
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        env:
-          - name: prod
-            url: https://apolenkov.duckdns.org
-          - name: staging
-            url: https://staging.apolenkov.duckdns.org
-          - name: dev
-            url: https://dev.apolenkov.duckdns.org
-
     steps:
-      - name: Health check ${{ matrix.env.name }}
+      - name: Health check prod
         run: |
-          URL="${{ matrix.env.url }}/health"
+          URL="${{ secrets.APP_PUBLIC_URL }}/health"
           HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' \
             "$URL" --max-time 10 2>/dev/null || echo "000")
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "::error::${{ matrix.env.name }} health check failed (HTTP $HTTP_CODE)"
+            echo "::error::prod health check failed (HTTP $HTTP_CODE)"
             exit 1
           fi
-          echo "${{ matrix.env.name }} OK (HTTP $HTTP_CODE)"
+          echo "prod OK (HTTP $HTTP_CODE)"
+
+  check-staging:
+    name: Health check staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check staging
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL_STAGING }}/health"
+          HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' \
+            "$URL" --max-time 10 2>/dev/null || echo "000")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::staging health check failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "staging OK (HTTP $HTTP_CODE)"
+
+  check-dev:
+    name: Health check dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check dev
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL_DEV }}/health"
+          HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' \
+            "$URL" --max-time 10 2>/dev/null || echo "000")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::dev health check failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "dev OK (HTTP $HTTP_CODE)"

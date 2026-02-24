@@ -20,10 +20,10 @@ export class DatabaseService implements OnModuleDestroy {
       : null
   }
 
-  async query(text: string): Promise<string> {
+  async query(text: string, params?: unknown[]): Promise<string> {
     if (!this.pool) return 'not configured'
     try {
-      await this.pool.query(text)
+      await this.pool.query(text, params)
       return 'connected'
     } catch (error) {
       this.logger.error(

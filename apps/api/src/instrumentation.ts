@@ -22,7 +22,7 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 Sentry.init({
   dsn: process.env['SENTRY_DSN'],
   skipOpenTelemetrySetup: true,
-  tracesSampleRate: 1.0,
+  tracesSampleRate: process.env['NODE_ENV'] === 'production' ? 0.1 : 1.0,
   environment: process.env['NODE_ENV'] ?? 'development',
 })
 

@@ -94,9 +94,9 @@ myapp-hello/                          # Turborepo root (npm workspaces)
 - **Docker:** Multi-stage turbo prune build, node:22-alpine, dumb-init, non-root user (nodejs:1001)
 - **PaaS:** Dokploy (Docker Swarm on VPS 185.239.48.55)
 - **Artifact promotion:** Build once → push to GHCR → deploy same image to dev → staging → prod
-- **CI/CD:** GitHub Actions — `ci.yml` (quality + tests), `deploy.yml` (GHCR + cascade),
-  `db-backup.yml` (PostgreSQL backups), `cleanup.yml` (weekly GHCR image prune),
-  `uptime.yml` (15min health checks on all 3 envs)
+- **CI/CD:** GitHub Actions — `ci.yml` (quality + tests + release), `deploy.yml` (triggered by CI
+  success via `workflow_run`, GHCR + cascade), `db-backup.yml` (PostgreSQL backups),
+  `cleanup.yml` (weekly GHCR image prune), `uptime.yml` (15min health checks on all 3 envs)
 - **Git workflow:** Trunk-based (single main branch, short-lived feature branches)
 - **Environments:** dev (auto-deploy), staging (manual approval), production (manual approval)
 - **Domain:** apolenkov.duckdns.org (prod), Traefik reverse proxy with Let's Encrypt
