@@ -23,6 +23,8 @@ Post-migration infrastructure hardening and feature roadmap.
 - [x] Docker build caching (buildx + GitHub Actions cache in deploy.yml)
 - [x] Local dev DX scripts (`npm run dev:docker`, `npm run dev:db`)
 - [x] npm audit in CI (security audit gate in quality job)
+- [x] API versioning (URI prefix `/v1/`, `VERSION_NEUTRAL` for infrastructure endpoints)
+- [x] DevDep update: `@swc/cli` 0.7.x → 0.8.x
 
 ## High Priority
 
@@ -46,19 +48,7 @@ Add end-to-end tests against a running instance:
 - Rate limiting behavior
 - Metrics endpoint format
 
-### API Versioning
-
-Prepare for breaking changes:
-
-- Add `/v1/` prefix to routes
-- Document versioning strategy in CLAUDE.md
-
 ## Low Priority
-
-### DevDep Updates
-
-- `@swc/cli`: 0.7.x → 0.8.x
-- `eslint`: 10.0.x → latest patch
 
 ### CORS Configuration
 

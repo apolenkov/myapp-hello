@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common'
+import { VersioningType } from '@nestjs/common'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { Test } from '@nestjs/testing'
 import { getOptionsToken } from '@nestjs/throttler'
@@ -47,9 +48,9 @@ describe('GET /health', () => {
   })
 })
 
-describe('GET /', () => {
+describe('GET /v1', () => {
   it('should return hello world with db not configured (no DATABASE_URL)', async () => {
-    const res = await request(ctx.app.getHttpServer()).get('/').expect(200)
+    const res = await request(ctx.app.getHttpServer()).get('/v1').expect(200)
 
     expect(res.body).toMatchObject({
       message: 'Hello World!',
@@ -61,7 +62,7 @@ describe('GET /', () => {
   })
 
   it('should return valid ISO timestamp', async () => {
-    const res = await request(ctx.app.getHttpServer()).get('/').expect(200)
+    const res = await request(ctx.app.getHttpServer()).get('/v1').expect(200)
     const body = res.body as { timestamp: string }
     const parsed = new Date(body.timestamp)
 
@@ -99,7 +100,7 @@ describe('Unknown route', () => {
 
 describe('Rate limiter headers', () => {
   it('should include standard rate limit headers', async () => {
-    const res = await request(ctx.app.getHttpServer()).get('/').expect(200)
+    const res = await request(ctx.app.getHttpServer()).get('/v1').expect(200)
 
     expect(res.headers).toHaveProperty('x-ratelimit-limit')
     expect(res.headers).toHaveProperty('x-ratelimit-remaining')
@@ -107,7 +108,7 @@ describe('Rate limiter headers', () => {
   })
 
   it('should return x-ratelimit-reset as a unix timestamp in seconds', async () => {
-    const res = await request(ctx.app.getHttpServer()).get('/').expect(200)
+    const res = await request(ctx.app.getHttpServer()).get('/v1').expect(200)
     const reset = Number(res.headers['x-ratelimit-reset'])
 
     expect(Number.isFinite(reset)).toBe(true)
@@ -127,6 +128,7 @@ describe('Rate limit exceeded', () => {
       .compile()
 
     rateLimitCtx.app = moduleRef.createNestApplication()
+    rateLimitCtx.app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
     rateLimitCtx.app.useGlobalFilters(new UnauthorizedExceptionFilter())
     await rateLimitCtx.app.init()
   })
@@ -138,9 +140,9 @@ describe('Rate limit exceeded', () => {
   it('should return 429 when rate limit is exceeded', async () => {
     const server = rateLimitCtx.app.getHttpServer()
 
-    await request(server).get('/').expect(200)
-    await request(server).get('/').expect(200)
-    const res = await request(server).get('/')
+    await request(server).get('/v1').expect(200)
+    await request(server).get('/v1').expect(200)
+    const res = await request(server).get('/v1')
 
     expect(res.status).toBe(429)
   })

@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common'
-import { Controller, Get, Module } from '@nestjs/common'
+import { Controller, Get, Module, VersioningType } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { Test } from '@nestjs/testing'
@@ -10,7 +10,7 @@ import { AppModule } from '../app.module'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
 
 const TEST_SECRET = 'test-secret-for-unit-tests'
-const PROTECTED_ROUTE = '/protected-test'
+const PROTECTED_ROUTE = '/v1/protected-test'
 
 @Controller('protected-test')
 class ProtectedTestController {
@@ -43,6 +43,7 @@ beforeAll(async () => {
     .compile()
 
   ctx.app = moduleRef.createNestApplication()
+  ctx.app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
   ctx.app.useGlobalFilters(new UnauthorizedExceptionFilter())
   await ctx.app.init()
 })
@@ -128,6 +129,7 @@ describe('Auth Guard — missing JWT_SECRET', () => {
       .compile()
 
     noSecretCtx.app = moduleRef.createNestApplication()
+    noSecretCtx.app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
     noSecretCtx.app.useGlobalFilters(new UnauthorizedExceptionFilter())
     await noSecretCtx.app.init()
   })

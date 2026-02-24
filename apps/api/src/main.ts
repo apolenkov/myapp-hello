@@ -1,6 +1,6 @@
 import 'reflect-metadata'
 
-import { Logger } from '@nestjs/common'
+import { Logger, VersioningType } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { SentryGlobalFilter } from '@sentry/nestjs/setup'
@@ -23,6 +23,7 @@ async function bootstrap(): Promise<void> {
   }
   expressApp.set('trust proxy', 1)
   app.use(helmet())
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
   app.enableShutdownHooks()
   app.useGlobalFilters(new SentryGlobalFilter(), new UnauthorizedExceptionFilter())
 

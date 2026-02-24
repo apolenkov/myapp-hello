@@ -30,14 +30,14 @@ describe('GET /metrics', () => {
   })
 
   it('should include custom http_request_duration metric after making a request', async () => {
-    await request(ctx.app.getHttpServer()).get('/')
+    await request(ctx.app.getHttpServer()).get('/v1')
     const res = await request(ctx.app.getHttpServer()).get('/metrics')
 
     expect(res.text).toContain('http_request_duration')
   })
 
   it('should include custom http_requests_total counter', async () => {
-    await request(ctx.app.getHttpServer()).get('/')
+    await request(ctx.app.getHttpServer()).get('/v1')
     const res = await request(ctx.app.getHttpServer()).get('/metrics')
 
     expect(res.text).toContain('http_requests')
