@@ -1,8 +1,10 @@
-import { UnauthorizedException } from '@nestjs/common'
-import type { CallHandler, ExecutionContext } from '@nestjs/common'
+import { HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common'
+import type { ArgumentsHost, CallHandler, ExecutionContext } from '@nestjs/common'
+import type { AbstractHttpAdapter } from '@nestjs/core'
 import type { ConfigService } from '@nestjs/config'
 import type { Reflector } from '@nestjs/core'
 import type { JwtService } from '@nestjs/jwt'
+import { SentryGlobalFilter } from '@sentry/nestjs/setup'
 import { firstValueFrom, of } from 'rxjs'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -48,6 +50,32 @@ describe('MetricsInterceptor — route fallback to req.path', () => {
     const mockHandler = { handle: vi.fn().mockReturnValue(of(undefined)) } as CallHandler
 
     await firstValueFrom(interceptor.intercept(mockCtx, mockHandler))
+  })
+})
+
+describe('SentryGlobalFilter — httpAdapter prevents applicationRef TypeError', () => {
+  const makeHost = (): ArgumentsHost =>
+    ({
+      getType: vi.fn().mockReturnValue('http'),
+      getArgByIndex: vi.fn().mockReturnValue({}),
+    }) as unknown as ArgumentsHost
+
+  it('calls isHeadersSent without throwing when httpAdapter is provided', () => {
+    const isHeadersSent = vi.fn().mockReturnValue(false)
+    const reply = vi.fn()
+    const mockAdapter = { isHeadersSent, reply } as unknown as AbstractHttpAdapter
+    const filter = new SentryGlobalFilter(mockAdapter)
+
+    filter.catch(new HttpException('Test error', HttpStatus.BAD_REQUEST), makeHost())
+
+    expect(isHeadersSent).toHaveBeenCalled()
+  })
+
+  it('throws TypeError when httpAdapter is not provided', () => {
+    const filter = new SentryGlobalFilter()
+    expect(() => {
+      filter.catch(new HttpException('Test error', HttpStatus.BAD_REQUEST), makeHost())
+    }).toThrow(TypeError)
   })
 })
 

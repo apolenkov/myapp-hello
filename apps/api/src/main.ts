@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 
 import { Logger, VersioningType } from '@nestjs/common'
-import { NestFactory } from '@nestjs/core'
+import { HttpAdapterHost, NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { SentryGlobalFilter } from '@sentry/nestjs/setup'
 import helmet from 'helmet'
@@ -25,7 +25,8 @@ async function bootstrap(): Promise<void> {
   app.use(helmet())
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
   app.enableShutdownHooks()
-  app.useGlobalFilters(new SentryGlobalFilter(), new UnauthorizedExceptionFilter())
+  const { httpAdapter } = app.get(HttpAdapterHost)
+  app.useGlobalFilters(new SentryGlobalFilter(httpAdapter), new UnauthorizedExceptionFilter())
 
   const config = new DocumentBuilder()
     .setTitle('myapp-hello API')
