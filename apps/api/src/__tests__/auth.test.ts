@@ -10,6 +10,7 @@ import { AppModule } from '../app.module'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
 
 const TEST_SECRET = 'test-secret-for-unit-tests'
+const TEST_APP_NAME = 'myapp-hello'
 const PROTECTED_ROUTE = '/v1/protected-test'
 const INVALID_TOKEN = 'Invalid token'
 
@@ -32,13 +33,23 @@ beforeAll(async () => {
   })
     .overrideProvider(ConfigService)
     .useValue({
-      get: (key: string) => {
+      get: <T = string>(key: string, defaultValue?: T): T | undefined => {
         const config: Record<string, string> = {
           JWT_SECRET: TEST_SECRET,
           NODE_ENV: 'test',
-          APP_NAME: 'myapp-hello',
+          APP_NAME: TEST_APP_NAME,
         }
-        return config[key]
+        return (config[key] as T | undefined) ?? defaultValue
+      },
+      getOrThrow: (key: string) => {
+        const config: Record<string, string> = {
+          JWT_SECRET: TEST_SECRET,
+          NODE_ENV: 'test',
+          APP_NAME: TEST_APP_NAME,
+        }
+        const value = config[key]
+        if (value === undefined) throw new Error(`Configuration key "${key}" does not exist`)
+        return value
       },
     })
     .compile()
@@ -138,43 +149,31 @@ describe('Auth Guard', () => {
 })
 
 describe('Auth Guard — missing JWT_SECRET', () => {
-  const noSecretCtx = {} as { app: INestApplication }
-
-  beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule, ProtectedTestModule],
-    })
-      .overrideProvider(ConfigService)
-      .useValue({
-        get: (key: string) => {
-          const config: Record<string, string> = {
-            NODE_ENV: 'test',
-            APP_NAME: 'myapp-hello',
-          }
-          return config[key]
-        },
+  it('should fail fast at module compile when JWT_SECRET is missing', async () => {
+    await expect(
+      Test.createTestingModule({
+        imports: [AppModule, ProtectedTestModule],
       })
-      .compile()
-
-    noSecretCtx.app = moduleRef.createNestApplication()
-    noSecretCtx.app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
-    noSecretCtx.app.useGlobalFilters(new UnauthorizedExceptionFilter())
-    await noSecretCtx.app.init()
-  })
-
-  afterAll(async () => {
-    await noSecretCtx.app.close()
-  })
-
-  it('should return Unauthorized (not Invalid token) when JWT_SECRET is missing', async () => {
-    const jwtService = new JwtService({})
-    const token = jwtService.sign({ sub: 'user-123' }, { secret: 'any-secret' })
-
-    const res = await request(noSecretCtx.app.getHttpServer())
-      .get(PROTECTED_ROUTE)
-      .set('Authorization', `Bearer ${token}`)
-
-    expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: 'Unauthorized' })
+        .overrideProvider(ConfigService)
+        .useValue({
+          get: <T = string>(key: string, defaultValue?: T): T | undefined => {
+            const config: Record<string, string> = {
+              NODE_ENV: 'test',
+              APP_NAME: TEST_APP_NAME,
+            }
+            return (config[key] as T | undefined) ?? defaultValue
+          },
+          getOrThrow: (key: string) => {
+            const config: Record<string, string> = {
+              NODE_ENV: 'test',
+              APP_NAME: TEST_APP_NAME,
+            }
+            const value = config[key]
+            if (value === undefined) throw new Error(`Configuration key "${key}" does not exist`)
+            return value
+          },
+        })
+        .compile(),
+    ).rejects.toThrow('JWT_SECRET')
   })
 })

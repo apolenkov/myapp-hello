@@ -7,9 +7,11 @@ import helmet from 'helmet'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { ConfigService } from '@nestjs/config'
+
 import { AppModule } from '../app.module'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
-import { createBaseTestApp } from './test-utils'
+import { createBaseTestApp, testConfigService } from './test-utils'
 
 const ctx = {} as { app: INestApplication }
 
@@ -123,6 +125,8 @@ describe('Rate limit exceeded', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideProvider(ConfigService)
+      .useValue(testConfigService)
       .overrideProvider(getOptionsToken())
       .useValue([{ ttl: 60_000, limit: 2 }])
       .compile()
