@@ -104,4 +104,31 @@ describe('DatabaseService — with database', () => {
 
     expect(endSpy).toHaveBeenCalledOnce()
   })
+
+  it('should resolve when pool.end() times out after 10s', async () => {
+    const service = await createDbService(TEST_DB_URL)
+    const pool = getPool(service)
+    const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined)
+
+    const pendingPromise = new Promise<void>(() => undefined)
+    vi.spyOn(pool, 'end').mockReturnValue(pendingPromise)
+
+    vi.useFakeTimers()
+    const destroyPromise = service.onModuleDestroy()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await destroyPromise
+    vi.useRealTimers()
+
+    expect(warnSpy).toHaveBeenCalledWith('Pool shutdown timed out after 10s, forcing close')
+  })
+
+  it('should pass params to pool.query when provided', async () => {
+    const service = await createDbService(TEST_DB_URL)
+    const pool = getPool(service)
+    const querySpy = vi.spyOn(pool, 'query').mockResolvedValue(undefined as never)
+
+    await service.query('SELECT $1::text', ['hello'])
+
+    expect(querySpy).toHaveBeenCalledWith('SELECT $1::text', ['hello'])
+  })
 })

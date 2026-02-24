@@ -24,8 +24,13 @@
     "dev:db": "docker compose -f infra/docker-compose.yml up postgres",
     "prepare": "husky"
   },
+  "overrides": {
+    "minimatch": "10.2.2"
+  },
   "devDependencies": {
     "@semantic-release/github": "^12.0.6",
+    "@swc/cli": "^0.8.0",
+    "@swc/core": "^1.15.13",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "markdownlint-cli2": "0.21.0",

@@ -35,7 +35,10 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = this.jwt.verify<Record<string, unknown>>(token, { secret })
+      const payload = this.jwt.verify<Record<string, unknown>>(token, {
+        secret,
+        algorithms: ['HS256'],
+      })
       ;(request as unknown as Record<string, unknown>)['user'] = payload
       return true
     } catch {
