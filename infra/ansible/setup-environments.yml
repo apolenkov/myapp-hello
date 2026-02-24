@@ -1,0 +1,260 @@
+---
+# Ansible playbook: configure Dokploy application environments
+#
+# Sets env vars for all 3 environments (dev, staging, prod) via Dokploy API.
+# Use after password rotation, JWT secret change, or any env var update.
+#
+# Usage:
+#   ansible-playbook infra/ansible/setup-environments.yml \
+#     -e @infra/ansible/vars/secrets.yml
+#
+# With Ansible Vault:
+#   ansible-playbook infra/ansible/setup-environments.yml \
+#     -e @infra/ansible/vars/secrets.yml --ask-vault-pass
+#
+# Single environment:
+#   ansible-playbook infra/ansible/setup-environments.yml \
+#     -e @infra/ansible/vars/secrets.yml -e target_env=prod
+#
+# Dry run (show env vars without applying):
+#   ansible-playbook infra/ansible/setup-environments.yml \
+#     -e @infra/ansible/vars/secrets.yml --tags dry-run
+
+- name: Configure Dokploy application environments
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    target_env: all
+    environments:
+      prod:
+        app_id: '{{ app_id_prod }}'
+        env_vars:
+          NODE_ENV: production
+          APP_NAME: myapp-hello
+          PORT: '3001'
+          DATABASE_URL: 'postgresql://{{ db_user_prod }}:{{ db_password_prod }}@{{ db_host_prod }}:5432/{{ db_name_prod }}'
+          JWT_SECRET: '{{ jwt_secret_prod }}'
+          SENTRY_DSN: '{{ sentry_dsn }}'
+          LOG_LEVEL: warn
+      staging:
+        app_id: '{{ app_id_staging }}'
+        env_vars:
+          NODE_ENV: staging
+          APP_NAME: myapp-hello
+          PORT: '3001'
+          DATABASE_URL: 'postgresql://{{ db_user_staging }}:{{ db_password_staging }}@{{ db_host_staging }}:5432/{{ db_name_staging }}'
+          JWT_SECRET: '{{ jwt_secret_staging }}'
+          SENTRY_DSN: '{{ sentry_dsn }}'
+          LOG_LEVEL: info
+      dev:
+        app_id: '{{ app_id_dev }}'
+        env_vars:
+          NODE_ENV: development
+          APP_NAME: myapp-hello
+          PORT: '3001'
+          DATABASE_URL: 'postgresql://{{ db_user_dev }}:{{ db_password_dev }}@{{ db_host_dev }}:5432/{{ db_name_dev }}'
+          JWT_SECRET: '{{ jwt_secret_dev }}'
+          SENTRY_DSN: '{{ sentry_dsn }}'
+          LOG_LEVEL: debug
+
+  tasks:
+    # ── Build target list ───────────────────────────────────────────────
+    - name: Determine target environments
+      ansible.builtin.set_fact:
+        target_envs: >-
+          {{ [target_env] if target_env != 'all'
+             else ['dev', 'staging', 'prod'] }}
+
+    - name: Validate target environments
+      ansible.builtin.assert:
+        that: item in environments
+        fail_msg: 'Unknown environment: {{ item }}. Valid: dev, staging, prod'
+      loop: '{{ target_envs }}'
+
+    # ── Dry run ─────────────────────────────────────────────────────────
+    - name: Show env vars (dry run)
+      ansible.builtin.debug:
+        msg: |
+          Environment: {{ item }}
+          App ID: {{ environments[item].app_id }}
+          Env vars:
+          {% for k, v in environments[item].env_vars.items() %}
+            {{ k }}={{ v | regex_replace('(.)(.{4})(.*)(.{4})', '\1****\4') if k in ['JWT_SECRET', 'DATABASE_URL', 'SENTRY_DSN'] else v }}
+          {% endfor %}
+      loop: '{{ target_envs }}'
+      tags: [dry-run, never]
+
+    # ── Fetch current env vars ──────────────────────────────────────────
+    - name: Fetch current app state
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/application.one?input={{ query | to_json | urlencode }}'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      vars:
+        query:
+          json:
+            applicationId: '{{ environments[item].app_id }}'
+      loop: '{{ target_envs }}'
+      loop_control:
+        label: '{{ item }}'
+      register: app_states
+
+    # ── Build env strings ───────────────────────────────────────────────
+    - name: Build env var strings
+      ansible.builtin.set_fact:
+        env_strings: >-
+          {{ env_strings | default({}) | combine({
+               item: target_envs[idx] | string
+             }) }}
+      loop: '{{ target_envs }}'
+      loop_control:
+        index_var: idx
+        label: '{{ item }}'
+
+    - name: Construct env file content
+      ansible.builtin.set_fact:
+        env_payloads: >-
+          {{ env_payloads | default({}) | combine({
+               item: environments[item].env_vars.keys()
+                     | map('regex_replace', '^(.*)$', '\1=' ~ environments[item].env_vars['\1'])
+                     | list
+             }) }}
+      loop: '{{ target_envs }}'
+      loop_control:
+        label: '{{ item }}'
+      ignore_errors: true
+
+    # Use template approach for env string construction
+    - name: Build env strings from vars
+      ansible.builtin.set_fact:
+        env_content: {}
+
+    - name: Construct env content for each environment
+      ansible.builtin.set_fact:
+        env_content: >-
+          {{ env_content | combine({
+               item: (environments[item].env_vars | dict2items
+                      | map(attribute='key')
+                      | zip(environments[item].env_vars | dict2items | map(attribute='value'))
+                      | map('join', '=')
+                      | join('\n')) ~ '\n'
+             }) }}
+      loop: '{{ target_envs }}'
+      loop_control:
+        label: '{{ item }}'
+
+    # ── Apply env vars ──────────────────────────────────────────────────
+    - name: Save environment variables
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/application.saveEnvironment'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            applicationId: '{{ environments[item].app_id }}'
+            env: '{{ env_content[item] }}'
+            createEnvFile: true
+        status_code: [200, 201]
+        return_content: true
+      loop: '{{ target_envs }}'
+      loop_control:
+        label: '{{ item }}'
+      register: save_results
+
+    - name: Show save results
+      ansible.builtin.debug:
+        msg: '{{ item.item }}: env vars saved ({{ environments[item.item].env_vars | length }} vars)'
+      loop: '{{ save_results.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+
+    # ── Deploy ──────────────────────────────────────────────────────────
+    - name: Redeploy applications
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/application.deploy'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            applicationId: '{{ environments[item].app_id }}'
+        status_code: [200, 201]
+        return_content: true
+      loop: '{{ target_envs }}'
+      loop_control:
+        label: '{{ item }}'
+      register: deploy_results
+      tags: [deploy]
+
+    - name: Wait for deployments
+      ansible.builtin.pause:
+        seconds: 30
+        prompt: 'Waiting 30s for deployments to complete...'
+      tags: [deploy]
+
+    # ── Health checks ───────────────────────────────────────────────────
+    - name: Define health check URLs
+      ansible.builtin.set_fact:
+        health_urls:
+          prod: https://apolenkov.duckdns.org
+          staging: https://staging.apolenkov.duckdns.org
+          dev: https://dev.apolenkov.duckdns.org
+
+    - name: Health check
+      ansible.builtin.uri:
+        url: '{{ health_urls[item] }}/health'
+        method: GET
+        return_content: true
+        status_code: [200]
+      loop: '{{ target_envs }}'
+      loop_control:
+        label: '{{ item }}'
+      register: health_results
+      retries: 5
+      delay: 10
+      until: health_results is not failed
+      tags: [deploy, health]
+
+    - name: Verify DB connection
+      ansible.builtin.uri:
+        url: '{{ health_urls[item] }}/v1'
+        method: GET
+        return_content: true
+        status_code: [200]
+      loop: '{{ target_envs }}'
+      loop_control:
+        label: '{{ item }}'
+      register: v1_results
+      tags: [deploy, health]
+
+    - name: Show verification results
+      ansible.builtin.debug:
+        msg: '{{ item.item }}: {{ item.json.db | default("unknown") }}'
+      loop: '{{ v1_results.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+      tags: [deploy, health]
+
+    # ── Summary ─────────────────────────────────────────────────────────
+    - name: Summary
+      ansible.builtin.debug:
+        msg: |
+          Environment setup complete:
+          {% for env in target_envs %}
+            - {{ env }}: {{ environments[env].env_vars | length }} vars → {{ health_urls[env] }}
+          {% endfor %}
+
+          Next steps:
+            - Encrypt secrets: ansible-vault encrypt infra/ansible/vars/secrets.yml
+            - Rotate DB passwords: update db_password_* in secrets.yml, re-run playbook
+            - Rotate JWT secrets: update jwt_secret_* in secrets.yml, re-run playbook
+      tags: [deploy, health]

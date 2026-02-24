@@ -137,6 +137,19 @@ URI-based versioning via `app.enableVersioning({ type: VersioningType.URI, defau
 | Auth 401            | `{ error: 'Unauthorized' }`                  |
 | Rate limit          | `x-ratelimit-limit/remaining/reset` headers  |
 
+## Sensitive Files (NEVER read)
+
+These files contain real credentials. **Never read them** — use `.example` versions for structure.
+
+| File                              | Safe Alternative                           |
+| --------------------------------- | ------------------------------------------ |
+| `.env`                            | `.env.example`                             |
+| `infra/ansible/vars/secrets.yml`  | `infra/ansible/vars/secrets.yml.example`   |
+| SSH keys (`~/.ssh/id_*`)          | Reference key names from documentation     |
+
+Reading credentials into LLM context exposes them in conversation summaries and transcript logs.
+A `PreToolUse` hook (`secrets-guard.mjs`) enforces this automatically.
+
 ## Secrets (GitHub Secrets, never commit)
 
 | Secret                             | Purpose                                        |
