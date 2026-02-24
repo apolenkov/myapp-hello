@@ -91,7 +91,8 @@ jobs:
       - name: Upload source maps to Sentry
         run: |
           npx @sentry/cli@latest releases new "$GITHUB_SHA"
-          npx @sentry/cli@latest releases files "$GITHUB_SHA" upload-sourcemaps apps/api/dist --rewrite
+          npx @sentry/cli@latest sourcemaps inject apps/api/dist
+          npx @sentry/cli@latest sourcemaps upload --release="$GITHUB_SHA" apps/api/dist
           npx @sentry/cli@latest releases finalize "$GITHUB_SHA"
           npx @sentry/cli@latest releases deploys "$GITHUB_SHA" new -e production
         env:
