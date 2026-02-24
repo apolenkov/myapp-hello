@@ -152,24 +152,27 @@ A `PreToolUse` hook (`secrets-guard.mjs`) enforces this automatically.
 
 ## Secrets (GitHub Secrets, never commit)
 
-| Secret                             | Purpose                                        |
-| ---------------------------------- | ---------------------------------------------- |
-| `DOKPLOY_URL`                      | Dokploy API base URL (e.g. `http://<vps>:3000` |
-| `DOKPLOY_TOKEN`                    | Dokploy API key (`x-api-key` header)           |
-| `DOKPLOY_SERVICE_ID_PROD`          | Dokploy application ID — production            |
-| `DOKPLOY_SERVICE_ID_STAGING`       | Dokploy application ID — staging               |
-| `DOKPLOY_SERVICE_ID_DEV`           | Dokploy application ID — dev                   |
-| `DOKPLOY_DESTINATION_ID`           | Dokploy S3 backup destination ID               |
-| `CODECOV_TOKEN`                    | Codecov coverage upload token                  |
-| `APP_PUBLIC_URL`                   | Production health check URL                    |
-| `APP_PUBLIC_URL_STAGING`           | Staging health check URL                       |
-| `APP_PUBLIC_URL_DEV`               | Dev health check URL                           |
-| `SENTRY_DSN`                       | Sentry error tracking DSN (runtime env var)    |
-| `SENTRY_AUTH_TOKEN`                | Sentry auth token (CI source maps upload)      |
-| `YANDEX_S3_ACCESS_KEY`             | Yandex Object Storage access key               |
-| `YANDEX_S3_SECRET_KEY`             | Yandex Object Storage secret key               |
-| `GRAFANA_API_TOKEN`, `GRAFANA_URL` | Grafana deploy annotations (optional)          |
-| `JWT_SECRET`                       | Auth token signing (Dokploy env var, not GH)   |
+| Secret                        | Purpose                                         |
+| ----------------------------- | ----------------------------------------------- |
+| `DOKPLOY_URL`                 | Dokploy API base URL (e.g. `http://<vps>:3000`  |
+| `DOKPLOY_TOKEN`               | Dokploy API key (`x-api-key` header)            |
+| `DOKPLOY_SERVICE_ID_PROD`     | Dokploy application ID — production             |
+| `DOKPLOY_SERVICE_ID_STAGING`  | Dokploy application ID — staging                |
+| `DOKPLOY_SERVICE_ID_DEV`      | Dokploy application ID — dev                    |
+| `DOKPLOY_DESTINATION_ID`      | Dokploy S3 backup destination ID                |
+| `CODECOV_TOKEN`               | Codecov coverage upload token                   |
+| `APP_PUBLIC_URL`              | Production health check URL                     |
+| `APP_PUBLIC_URL_STAGING`      | Staging health check URL                        |
+| `APP_PUBLIC_URL_DEV`          | Dev health check URL                            |
+| `SENTRY_DSN`                  | Sentry error tracking DSN (runtime env var)     |
+| `SENTRY_AUTH_TOKEN`           | Sentry auth token (CI source maps upload)       |
+| `YANDEX_S3_ACCESS_KEY`        | Yandex Object Storage access key                |
+| `YANDEX_S3_SECRET_KEY`        | Yandex Object Storage secret key                |
+| `GRAFANA_API_TOKEN`           | Grafana API token (deploy annotations)          |
+| `GRAFANA_URL`                 | Grafana stack URL (e.g. https://\*.grafana.net) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Grafana Cloud OTLP gateway URL                  |
+| `OTEL_EXPORTER_OTLP_HEADERS`  | `Authorization=Basic <base64(id:token)>`        |
+| `JWT_SECRET`                  | Auth token signing (Dokploy env var, not GH)    |
 
 ## Observability
 
