@@ -38,6 +38,9 @@
           JWT_SECRET: '{{ jwt_secret_prod }}'
           SENTRY_DSN: '{{ sentry_dsn }}'
           LOG_LEVEL: warn
+          OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
+          OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       staging:
         app_id: '{{ app_id_staging }}'
         env_vars:
@@ -48,6 +51,9 @@
           JWT_SECRET: '{{ jwt_secret_staging }}'
           SENTRY_DSN: '{{ sentry_dsn }}'
           LOG_LEVEL: info
+          OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
+          OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       dev:
         app_id: '{{ app_id_dev }}'
         env_vars:
@@ -58,6 +64,9 @@
           JWT_SECRET: '{{ jwt_secret_dev }}'
           SENTRY_DSN: '{{ sentry_dsn }}'
           LOG_LEVEL: debug
+          OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
+          OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
 
   tasks:
     # ── Build target list ───────────────────────────────────────────────
@@ -81,54 +90,12 @@
           App ID: {{ environments[item].app_id }}
           Env vars:
           {% for k, v in environments[item].env_vars.items() %}
-            {{ k }}={{ v | regex_replace('(.)(.{4})(.*)(.{4})', '\1****\4') if k in ['JWT_SECRET', 'DATABASE_URL', 'SENTRY_DSN'] else v }}
+            {{ k }}={{ v | regex_replace('(.)(.{4})(.*)(.{4})', '\1****\4') if k in ['JWT_SECRET', 'DATABASE_URL', 'SENTRY_DSN', 'OTEL_EXPORTER_OTLP_HEADERS'] else v }}
           {% endfor %}
       loop: '{{ target_envs }}'
       tags: [dry-run, never]
 
-    # ── Fetch current env vars ──────────────────────────────────────────
-    - name: Fetch current app state
-      ansible.builtin.uri:
-        url: '{{ dokploy_url }}/api/trpc/application.one?input={{ query | to_json | urlencode }}'
-        method: GET
-        headers:
-          x-api-key: '{{ dokploy_token }}'
-        return_content: true
-      vars:
-        query:
-          json:
-            applicationId: '{{ environments[item].app_id }}'
-      loop: '{{ target_envs }}'
-      loop_control:
-        label: '{{ item }}'
-      register: app_states
-
     # ── Build env strings ───────────────────────────────────────────────
-    - name: Build env var strings
-      ansible.builtin.set_fact:
-        env_strings: >-
-          {{ env_strings | default({}) | combine({
-               item: target_envs[idx] | string
-             }) }}
-      loop: '{{ target_envs }}'
-      loop_control:
-        index_var: idx
-        label: '{{ item }}'
-
-    - name: Construct env file content
-      ansible.builtin.set_fact:
-        env_payloads: >-
-          {{ env_payloads | default({}) | combine({
-               item: environments[item].env_vars.keys()
-                     | map('regex_replace', '^(.*)$', '\1=' ~ environments[item].env_vars['\1'])
-                     | list
-             }) }}
-      loop: '{{ target_envs }}'
-      loop_control:
-        label: '{{ item }}'
-      ignore_errors: true
-
-    # Use template approach for env string construction
     - name: Build env strings from vars
       ansible.builtin.set_fact:
         env_content: {}
