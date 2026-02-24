@@ -10,7 +10,13 @@ export class DatabaseService implements OnModuleDestroy {
   constructor(private readonly config: ConfigService) {
     const databaseUrl = this.config.get<string>('DATABASE_URL')
     this.pool = databaseUrl
-      ? new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 5000 })
+      ? new Pool({
+          connectionString: databaseUrl,
+          max: 20,
+          idleTimeoutMillis: 30_000,
+          connectionTimeoutMillis: 30_000,
+          statement_timeout: 30_000,
+        })
       : null
   }
 
@@ -34,7 +40,13 @@ export class DatabaseService implements OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     if (this.pool) {
-      await this.pool.end()
+      const timeout = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          this.logger.warn('Pool shutdown timed out after 10s, forcing close')
+          resolve()
+        }, 10_000)
+      })
+      await Promise.race([this.pool.end(), timeout])
     }
   }
 }

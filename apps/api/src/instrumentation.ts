@@ -36,9 +36,21 @@ const resource = resourceFromAttributes({
   'deployment.environment': process.env['NODE_ENV'] ?? 'development',
 })
 
-const traceExporter = process.env['OTEL_EXPORTER_OTLP_ENDPOINT']
-  ? new OTLPTraceExporter({ url: `${process.env['OTEL_EXPORTER_OTLP_ENDPOINT']}/v1/traces` })
-  : undefined
+const createTraceExporter = (): OTLPTraceExporter | undefined => {
+  const endpoint = process.env['OTEL_EXPORTER_OTLP_ENDPOINT']
+  if (!endpoint) return undefined
+  try {
+    return new OTLPTraceExporter({ url: `${endpoint}/v1/traces` })
+  } catch (error) {
+    console.warn(
+      'Failed to initialize OTel trace exporter, traces will be disabled:',
+      error instanceof Error ? error.message : String(error),
+    )
+    return undefined
+  }
+}
+
+const traceExporter = createTraceExporter()
 
 const sdk = new NodeSDK({
   resource,

@@ -3,6 +3,10 @@
   "private": true,
   "description": "Monorepo for myapp services",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=11.0.0"
+  },
   "packageManager": "npm@11.10.0",
   "workspaces": [
     "apps/*",
@@ -16,6 +20,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "dev": "turbo run dev",
+    "dev:docker": "docker compose -f infra/docker-compose.yml up --build",
+    "dev:db": "docker compose -f infra/docker-compose.yml up postgres",
     "prepare": "husky"
   },
   "devDependencies": {

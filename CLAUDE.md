@@ -94,8 +94,9 @@ myapp-hello/                          # Turborepo root (npm workspaces)
 - **Docker:** Multi-stage turbo prune build, node:22-alpine, dumb-init, non-root user (nodejs:1001)
 - **PaaS:** Dokploy (Docker Swarm on VPS 185.239.48.55)
 - **Artifact promotion:** Build once → push to GHCR → deploy same image to dev → staging → prod
-- **CI/CD:** GitHub Actions — `ci.yml` (quality + tests) + `deploy.yml` (GHCR + cascade) +
-  `db-backup.yml` (PostgreSQL backups via Dokploy API)
+- **CI/CD:** GitHub Actions — `ci.yml` (quality + tests), `deploy.yml` (GHCR + cascade),
+  `db-backup.yml` (PostgreSQL backups), `cleanup.yml` (weekly GHCR image prune),
+  `uptime.yml` (15min health checks on all 3 envs)
 - **Git workflow:** Trunk-based (single main branch, short-lived feature branches)
 - **Environments:** dev (auto-deploy), staging (manual approval), production (manual approval)
 - **Domain:** apolenkov.duckdns.org (prod), Traefik reverse proxy with Let's Encrypt
@@ -111,6 +112,9 @@ myapp-hello/                          # Turborepo root (npm workspaces)
   names (e.g. `myapp-hello-prod-qps6m7:3001`), NOT hardcoded IPs. 502 = wrong service name.
 - **Swarm DNS:** Service names resolve as stable VIPs on overlay networks — no IP tracking needed
 - **Deploy verification:** CI uses polling loop (20 attempts x 15s) against /health, not naive sleep
+- **Shell injection:** Use `jq -nc --arg` for safe JSON in CI workflows, never string concatenation
+- **DB timeouts:** connectionTimeoutMillis 30s, statement_timeout 30s, graceful shutdown 10s
+- **Semantic release:** Runs after quality+test gates on main push (`ci.yml` release job)
 
 ## API Contracts (must NOT change)
 
