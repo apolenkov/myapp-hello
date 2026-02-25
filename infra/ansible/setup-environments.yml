@@ -104,11 +104,7 @@
       ansible.builtin.set_fact:
         env_content: >-
           {{ env_content | combine({
-               item: (environments[item].env_vars | dict2items
-                      | map(attribute='key')
-                      | zip(environments[item].env_vars | dict2items | map(attribute='value'))
-                      | map('join', '=')
-                      | join('\n')) ~ '\n'
+               item: (lookup('ansible.builtin.template', 'templates/dokploy-env.j2') | trim)
              }) }}
       loop: '{{ target_envs }}'
       loop_control:

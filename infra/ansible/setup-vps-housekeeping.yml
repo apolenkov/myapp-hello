@@ -1,0 +1,57 @@
+---
+- name: Setup VPS Docker housekeeping
+  hosts: all
+  remote_user: root
+  gather_facts: false
+
+  vars:
+    housekeeping_script_path: /usr/local/sbin/docker-housekeeping.sh
+    housekeeping_log_path: /var/log/docker-housekeeping.log
+    disk_threshold_percent: 75
+
+  tasks:
+    - name: Install Docker housekeeping script
+      ansible.builtin.copy:
+        dest: '{{ housekeeping_script_path }}'
+        mode: '0755'
+        owner: root
+        group: root
+        content: |
+          #!/usr/bin/env bash
+          set -eu
+
+          threshold={{ disk_threshold_percent }}
+          usage=$(df --output=pcent / | awk 'NR==2 {gsub("%", "", $1); print $1}')
+
+          if [ "$usage" -lt "$threshold" ]; then
+            exit 0
+          fi
+
+          ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          {
+            echo "[$ts] disk usage ${usage}% >= ${threshold}% -> running docker cleanup"
+            docker image prune -af
+            docker builder prune -af
+            docker container prune -f
+            docker volume prune -f
+            df -h /
+            docker system df
+            echo "[$ts] cleanup finished"
+          } >> {{ housekeeping_log_path }} 2>&1
+
+    - name: Configure cron job for housekeeping
+      ansible.builtin.copy:
+        dest: /etc/cron.d/docker-housekeeping
+        mode: '0644'
+        owner: root
+        group: root
+        content: |
+          SHELL=/bin/bash
+          PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          MAILTO=""
+          15 */6 * * * root {{ housekeeping_script_path }}
+
+    - name: Run housekeeping once
+      ansible.builtin.command:
+        cmd: '{{ housekeeping_script_path }}'
+      changed_when: true

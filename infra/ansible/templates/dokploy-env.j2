@@ -1,0 +1,3 @@
+{% for env_var in environments[item].env_vars | dict2items %}
+{{ env_var.key }}={{ env_var.value }}
+{% endfor %}
