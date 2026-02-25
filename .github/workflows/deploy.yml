@@ -227,7 +227,11 @@ jobs:
           LOOKBACK: 1h
           LIMIT: 20
         run: |
-          if [ -z "$GRAFANA_API_TOKEN" ] && ([ -z "$GRAFANA_TEMPO_QUERY_URL" ] || [ -z "$GRAFANA_TEMPO_USER" ] || [ -z "$GRAFANA_TEMPO_READ_TOKEN" ]); then
+          if [ -z "$GRAFANA_API_TOKEN" ] && (
+            [ -z "$GRAFANA_TEMPO_QUERY_URL" ] ||
+            [ -z "$GRAFANA_TEMPO_USER" ] ||
+            [ -z "$GRAFANA_TEMPO_READ_TOKEN" ]
+          ); then
             echo "Tempo trace verification skipped (missing Grafana API token and direct Tempo credentials)"
             exit 0
           fi
