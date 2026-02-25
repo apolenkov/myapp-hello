@@ -211,6 +211,29 @@ jobs:
           echo "Health check did not pass within 300s"
           exit 1
 
+      - name: Verify traces in Grafana Tempo
+        if: always()
+        continue-on-error: true
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_API_TOKEN: ${{ secrets.GRAFANA_API_TOKEN }}
+          GRAFANA_TEMPO_QUERY_URL: ${{ secrets.GRAFANA_TEMPO_QUERY_URL }}
+          GRAFANA_TEMPO_USER: ${{ secrets.GRAFANA_TEMPO_USER }}
+          GRAFANA_TEMPO_READ_TOKEN: ${{ secrets.GRAFANA_TEMPO_READ_TOKEN }}
+          GRAFANA_TEMPO_DATASOURCE_UID: ${{ secrets.GRAFANA_TEMPO_DATASOURCE_UID }}
+          SERVICE_NAME: myapp-hello
+          SERVICE_NAMESPACE: my-application-group
+          DEPLOYMENT_ENVIRONMENT: production
+          LOOKBACK: 1h
+          LIMIT: 20
+        run: |
+          if [ -z "$GRAFANA_API_TOKEN" ] && ([ -z "$GRAFANA_TEMPO_QUERY_URL" ] || [ -z "$GRAFANA_TEMPO_USER" ] || [ -z "$GRAFANA_TEMPO_READ_TOKEN" ]); then
+            echo "Tempo trace verification skipped (missing Grafana API token and direct Tempo credentials)"
+            exit 0
+          fi
+          chmod +x scripts/verify-grafana-traces.sh
+          scripts/verify-grafana-traces.sh
+
       - name: Create Grafana deploy annotation
         if: always()
         continue-on-error: true

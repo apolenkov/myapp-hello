@@ -27,12 +27,17 @@
 
   vars:
     target_env: all
+    resolved_otel_headers: >-
+      {{ ('Authorization=Basic ' ~ ((grafana_stack_user ~ ':' ~ grafana_traces_write_token) | b64encode))
+         if (grafana_stack_user is defined and grafana_traces_write_token is defined)
+         else otel_headers }}
     environments:
       prod:
         app_id: '{{ app_id_prod }}'
         env_vars:
           NODE_ENV: production
           APP_NAME: myapp-hello
+          OTEL_SERVICE_NAME: myapp-hello
           PORT: '3001'
           SERVICE_NAMESPACE: my-application-group
           DATABASE_URL: 'postgresql://{{ db_user_prod }}:{{ db_password_prod }}@{{ db_host_prod }}:5432/{{ db_name_prod }}'
@@ -40,7 +45,7 @@
           SENTRY_DSN: '{{ sentry_dsn }}'
           LOG_LEVEL: warn
           OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
-          OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
+          OTEL_EXPORTER_OTLP_HEADERS: '{{ resolved_otel_headers }}'
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
           OTEL_RESOURCE_ATTRIBUTES: service.namespace=my-application-group
       staging:
@@ -48,6 +53,7 @@
         env_vars:
           NODE_ENV: staging
           APP_NAME: myapp-hello
+          OTEL_SERVICE_NAME: myapp-hello
           PORT: '3001'
           SERVICE_NAMESPACE: my-application-group
           DATABASE_URL: 'postgresql://{{ db_user_staging }}:{{ db_password_staging }}@{{ db_host_staging }}:5432/{{ db_name_staging }}'
@@ -55,7 +61,7 @@
           SENTRY_DSN: '{{ sentry_dsn }}'
           LOG_LEVEL: info
           OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
-          OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
+          OTEL_EXPORTER_OTLP_HEADERS: '{{ resolved_otel_headers }}'
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
           OTEL_RESOURCE_ATTRIBUTES: service.namespace=my-application-group
       dev:
@@ -63,6 +69,7 @@
         env_vars:
           NODE_ENV: development
           APP_NAME: myapp-hello
+          OTEL_SERVICE_NAME: myapp-hello
           PORT: '3001'
           SERVICE_NAMESPACE: my-application-group
           DATABASE_URL: 'postgresql://{{ db_user_dev }}:{{ db_password_dev }}@{{ db_host_dev }}:5432/{{ db_name_dev }}'
@@ -70,7 +77,7 @@
           SENTRY_DSN: '{{ sentry_dsn }}'
           LOG_LEVEL: debug
           OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
-          OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
+          OTEL_EXPORTER_OTLP_HEADERS: '{{ resolved_otel_headers }}'
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
           OTEL_RESOURCE_ATTRIBUTES: service.namespace=my-application-group
 
