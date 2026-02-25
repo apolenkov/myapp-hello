@@ -34,6 +34,7 @@
           NODE_ENV: production
           APP_NAME: myapp-hello
           PORT: '3001'
+          SERVICE_NAMESPACE: my-application-group
           DATABASE_URL: 'postgresql://{{ db_user_prod }}:{{ db_password_prod }}@{{ db_host_prod }}:5432/{{ db_name_prod }}'
           JWT_SECRET: '{{ jwt_secret_prod }}'
           SENTRY_DSN: '{{ sentry_dsn }}'
@@ -41,12 +42,14 @@
           OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
           OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_RESOURCE_ATTRIBUTES: service.namespace=my-application-group
       staging:
         app_id: '{{ app_id_staging }}'
         env_vars:
           NODE_ENV: staging
           APP_NAME: myapp-hello
           PORT: '3001'
+          SERVICE_NAMESPACE: my-application-group
           DATABASE_URL: 'postgresql://{{ db_user_staging }}:{{ db_password_staging }}@{{ db_host_staging }}:5432/{{ db_name_staging }}'
           JWT_SECRET: '{{ jwt_secret_staging }}'
           SENTRY_DSN: '{{ sentry_dsn }}'
@@ -54,12 +57,14 @@
           OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
           OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_RESOURCE_ATTRIBUTES: service.namespace=my-application-group
       dev:
         app_id: '{{ app_id_dev }}'
         env_vars:
           NODE_ENV: development
           APP_NAME: myapp-hello
           PORT: '3001'
+          SERVICE_NAMESPACE: my-application-group
           DATABASE_URL: 'postgresql://{{ db_user_dev }}:{{ db_password_dev }}@{{ db_host_dev }}:5432/{{ db_name_dev }}'
           JWT_SECRET: '{{ jwt_secret_dev }}'
           SENTRY_DSN: '{{ sentry_dsn }}'
@@ -67,6 +72,7 @@
           OTEL_EXPORTER_OTLP_ENDPOINT: '{{ otel_endpoint }}'
           OTEL_EXPORTER_OTLP_HEADERS: '{{ otel_headers }}'
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_RESOURCE_ATTRIBUTES: service.namespace=my-application-group
 
   tasks:
     # ── Build target list ───────────────────────────────────────────────
