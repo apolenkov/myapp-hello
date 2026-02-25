@@ -31,7 +31,7 @@ const IGNORED_PATHS = new Set(['/health', '/metrics'])
 const prometheusExporter = new PrometheusExporter({ preventServerStart: true })
 
 const resource = resourceFromAttributes({
-  [ATTR_SERVICE_NAME]: process.env['APP_NAME'] ?? 'myapp-hello',
+  [ATTR_SERVICE_NAME]: process.env['OTEL_SERVICE_NAME'] ?? process.env['APP_NAME'] ?? 'myapp-hello',
   'service.namespace': process.env['SERVICE_NAMESPACE'] ?? 'my-application-group',
   [ATTR_SERVICE_VERSION]: process.env['npm_package_version'] ?? '0.0.0',
   'deployment.environment': process.env['NODE_ENV'] ?? 'development',

@@ -285,6 +285,19 @@ Docker volume on the VPS.
 1. Verify `OTEL_EXPORTER_OTLP_ENDPOINT` is set in the application environment
 2. Check Tempo logs: `docker logs observability-tempo-1`
 3. Test OTLP endpoint: `curl http://localhost:4318/v1/traces` (should return method not allowed)
+4. Verify Grafana Cloud trace readability with read-only token:
+
+```bash
+export GRAFANA_TEMPO_QUERY_URL="https://<stack>.grafana.net/tempo"
+export GRAFANA_TEMPO_USER="<stack-instance-id>"
+export GRAFANA_TEMPO_READ_TOKEN="<glc-traces-read-token>"
+scripts/verify-grafana-traces.sh
+```
+
+Use separate tokens by purpose:
+
+- ingest path (`OTEL_EXPORTER_OTLP_HEADERS`) → token with `traces:write`
+- query path (`scripts/verify-grafana-traces.sh`) → token with `traces:read`
 
 ### Alerts not firing
 

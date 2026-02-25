@@ -19,6 +19,7 @@
     "lint": "turbo run lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "verify:traces": "./scripts/verify-grafana-traces.sh",
     "dev": "turbo run dev",
     "dev:docker": "docker compose -f infra/docker-compose.yml up --build",
     "dev:db": "docker compose -f infra/docker-compose.yml up postgres",
