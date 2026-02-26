@@ -30,13 +30,20 @@ BASE_URL=""
 AUTH_HEADER=""
 BASIC_AUTH=""
 
-if [ -n "${GRAFANA_URL:-}" ] && [ -n "${GRAFANA_API_TOKEN:-}" ]; then
+# Determine mode based on available variables.
+# Direct mode with a specific Tempo cluster URL is often more reliable for Access Policy tokens.
+if [ -n "${GRAFANA_TEMPO_QUERY_URL:-}" ] && [ -n "${GRAFANA_TEMPO_USER:-}" ] && [ -n "${GRAFANA_TEMPO_READ_TOKEN:-}" ]; then
+  MODE="direct"
+  require_var GRAFANA_TEMPO_QUERY_URL
+  require_var GRAFANA_TEMPO_USER
+  require_var GRAFANA_TEMPO_READ_TOKEN
+  BASE_URL="${GRAFANA_TEMPO_QUERY_URL%/}"
+  BASIC_AUTH="${GRAFANA_TEMPO_USER}:${GRAFANA_TEMPO_READ_TOKEN}"
+elif [ -n "${GRAFANA_URL:-}" ] && [ -n "${GRAFANA_API_TOKEN:-}" ]; then
   MODE="grafana-proxy"
   require_var GRAFANA_URL
   require_var GRAFANA_API_TOKEN
-
-  GRAFANA_URL="${GRAFANA_URL%/}"
-  AUTH_HEADER="Authorization: Bearer ${GRAFANA_API_TOKEN}"
+  BASE_URL="${GRAFANA_URL%/}"
 
   TEMPO_UID="${GRAFANA_TEMPO_DATASOURCE_UID:-}"
   if [ -z "$TEMPO_UID" ]; then
@@ -44,7 +51,7 @@ if [ -n "${GRAFANA_URL:-}" ] && [ -n "${GRAFANA_API_TOKEN:-}" ]; then
       echo "jq is required to auto-detect Tempo datasource UID." >&2
       exit 1
     fi
-    datasources_json="$(/usr/bin/curl -fsS -H "$AUTH_HEADER" "$GRAFANA_URL/api/datasources")"
+    datasources_json="$(/usr/bin/curl -fsS -H "Authorization: Bearer ${GRAFANA_API_TOKEN}" "$BASE_URL/api/datasources")"
     TEMPO_UID="$(printf '%s' "$datasources_json" | jq -r '[.[] | select(.type=="tempo")] | (map(select(.isDefault==true))[0] // .[0]).uid // empty')"
   fi
 
@@ -53,17 +60,12 @@ if [ -n "${GRAFANA_URL:-}" ] && [ -n "${GRAFANA_API_TOKEN:-}" ]; then
     exit 1
   fi
 
-  BASE_URL="$GRAFANA_URL/api/datasources/proxy/uid/$TEMPO_UID"
-elif [ -n "${GRAFANA_TEMPO_QUERY_URL:-}" ] || [ -n "${GRAFANA_TEMPO_USER:-}" ] || [ -n "${GRAFANA_TEMPO_READ_TOKEN:-}" ]; then
-  MODE="direct"
-  require_var GRAFANA_TEMPO_QUERY_URL
-  require_var GRAFANA_TEMPO_USER
-  require_var GRAFANA_TEMPO_READ_TOKEN
-  BASE_URL="${GRAFANA_TEMPO_QUERY_URL%/}"
-  BASIC_AUTH="${GRAFANA_TEMPO_USER}:${GRAFANA_TEMPO_READ_TOKEN}"
+  AUTH_HEADER="Authorization: Bearer ${GRAFANA_API_TOKEN}"
+  BASE_URL="$BASE_URL/api/datasources/proxy/uid/$TEMPO_UID"
 else
-  echo "No Grafana credentials provided." >&2
-  echo "Set GRAFANA_URL + GRAFANA_API_TOKEN (proxy mode) or GRAFANA_TEMPO_QUERY_URL + GRAFANA_TEMPO_USER + GRAFANA_TEMPO_READ_TOKEN (direct mode)." >&2
+  echo "No valid Grafana credentials provided." >&2
+  echo "Set GRAFANA_TEMPO_QUERY_URL + GRAFANA_TEMPO_USER + GRAFANA_TEMPO_READ_TOKEN (preferred for Access Policies)" >&2
+  echo "or GRAFANA_URL + GRAFANA_API_TOKEN (proxy mode)." >&2
   exit 1
 fi
 
