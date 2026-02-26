@@ -169,6 +169,8 @@ jobs:
     environment: production
 
     steps:
+      - uses: actions/checkout@v6
+
       - name: Configure GHCR source
         run: |
           IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
