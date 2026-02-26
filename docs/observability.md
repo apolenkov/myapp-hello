@@ -288,6 +288,18 @@ Docker volume on the VPS.
 4. Verify Grafana Cloud trace readability with read-only token:
 
 ```bash
+export GRAFANA_TEMPO_QUERY_URL="https://tempo-prod-10-prod-eu-west-2.grafana.net/tempo"
+export GRAFANA_TEMPO_USER="1489367"
+export GRAFANA_TEMPO_READ_TOKEN="<glc-traces-read-token>"
+scripts/verify-grafana-traces.sh
+```
+
+Use separate tokens by purpose:
+
+- ingest path (`OTEL_EXPORTER_OTLP_HEADERS`) → token with `traces:write` (Username: 1489367)
+- query path (`scripts/verify-grafana-traces.sh`) → token with `traces:read` (Username: 1489367)
+
+```bash
 export GRAFANA_TEMPO_QUERY_URL="https://<stack>.grafana.net/tempo"
 export GRAFANA_TEMPO_USER="<stack-instance-id>"
 export GRAFANA_TEMPO_READ_TOKEN="<glc-traces-read-token>"
