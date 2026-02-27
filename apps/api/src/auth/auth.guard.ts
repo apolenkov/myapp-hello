@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { Reflector } from '@nestjs/core'
 import { JwtService } from '@nestjs/jwt'
 import type { Request } from 'express'
+import { JsonWebTokenError } from 'jsonwebtoken'
 
 import { IS_PUBLIC_KEY } from './public.decorator'
 
@@ -41,8 +42,12 @@ export class JwtAuthGuard implements CanActivate {
       })
       ;(request as unknown as Record<string, unknown>)['user'] = payload
       return true
-    } catch {
-      throw new UnauthorizedException('Invalid token')
+    } catch (err) {
+      // Only catch JWT validation errors — let unexpected errors propagate
+      if (err instanceof JsonWebTokenError) {
+        throw new UnauthorizedException('Invalid token')
+      }
+      throw err
     }
   }
 }

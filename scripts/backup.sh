@@ -8,8 +8,13 @@ LOGFILE="/var/log/backup.log"
 
 alert() {
   echo "[BACKUP ERROR] $1" | tee -a "$LOGFILE"
-  [ -n "$ALERT_WEBHOOK" ] && \
-    curl -sf -X POST "$ALERT_WEBHOOK" -d "{\"text\":\"Backup FAILED: $1\"}" || true
+  if [ -n "$ALERT_WEBHOOK" ]; then
+    local payload
+    payload=$(jq -nc --arg text "Backup FAILED: $1" '{"text": $text}')
+    curl -sf -X POST "$ALERT_WEBHOOK" \
+      -H "Content-Type: application/json" \
+      -d "$payload" || true
+  fi
 }
 
 mkdir -p "$TMP/postgres" "$TMP/configs"

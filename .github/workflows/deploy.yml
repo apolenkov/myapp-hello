@@ -85,11 +85,13 @@ jobs:
 
       - name: Deploy to Dokploy (dev)
         run: |
+          BODY=$(jq -nc --arg id "${{ secrets.DOKPLOY_SERVICE_ID_DEV }}" \
+            '{"json":{"applicationId":$id}}')
           curl -sf -X POST \
             "${{ secrets.DOKPLOY_URL }}/api/trpc/application.deploy" \
             -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_SERVICE_ID_DEV }}"}}'
+            -d "$BODY"
           echo "Deploy to dev triggered"
 
       - name: Verify health
@@ -135,11 +137,13 @@ jobs:
 
       - name: Deploy to Dokploy (staging)
         run: |
+          BODY=$(jq -nc --arg id "${{ secrets.DOKPLOY_SERVICE_ID_STAGING }}" \
+            '{"json":{"applicationId":$id}}')
           curl -sf -X POST \
             "${{ secrets.DOKPLOY_URL }}/api/trpc/application.deploy" \
             -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_SERVICE_ID_STAGING }}"}}'
+            -d "$BODY"
           echo "Deploy to staging triggered"
 
       - name: Verify health
@@ -187,11 +191,13 @@ jobs:
 
       - name: Deploy to Dokploy (production)
         run: |
+          BODY=$(jq -nc --arg id "${{ secrets.DOKPLOY_SERVICE_ID_PROD }}" \
+            '{"json":{"applicationId":$id}}')
           curl -sf -X POST \
             "${{ secrets.DOKPLOY_URL }}/api/trpc/application.deploy" \
             -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"json":{"applicationId":"${{ secrets.DOKPLOY_SERVICE_ID_PROD }}"}}'
+            -d "$BODY"
           echo "Deploy to production triggered"
 
       - name: Verify health
@@ -243,12 +249,18 @@ jobs:
       - name: Create Grafana deploy annotation
         if: always()
         continue-on-error: true
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_API_TOKEN: ${{ secrets.GRAFANA_API_TOKEN }}
+          DEPLOY_SHA: ${{ github.sha }}
         run: |
-          if [ -n "${{ secrets.GRAFANA_URL }}" ] && [ -n "${{ secrets.GRAFANA_API_TOKEN }}" ]; then
-            curl -sf -X POST "${{ secrets.GRAFANA_URL }}/api/annotations" \
-              -H "Authorization: Bearer ${{ secrets.GRAFANA_API_TOKEN }}" \
+          if [ -n "$GRAFANA_URL" ] && [ -n "$GRAFANA_API_TOKEN" ]; then
+            BODY=$(jq -nc --arg text "Deploy $DEPLOY_SHA to production" \
+              '{"text":$text,"tags":["deploy","production"]}')
+            curl -sf -X POST "$GRAFANA_URL/api/annotations" \
+              -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
               -H "Content-Type: application/json" \
-              -d '{"text":"Deploy ${{ github.sha }} to production","tags":["deploy","production"]}'
+              -d "$BODY"
             echo "Grafana annotation created"
           else
             echo "Grafana annotation skipped (secrets not configured)"

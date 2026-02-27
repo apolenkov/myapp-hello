@@ -190,16 +190,29 @@ curl -s http://localhost:3001/metrics | head -20
 
 ## Deployment
 
+### Required Environment Variables
+
+The observability stack requires the following environment variables on the VPS:
+
+| Variable            | Purpose                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| `GRAFANA_API_TOKEN` | Grafana Cloud API key with push permissions for Loki and Prometheus |
+| `GRAFANA_ORG_ID`    | Grafana Cloud organization/user ID for Prometheus remote_write auth |
+| `LOKI_USER_ID`      | Grafana Cloud Loki user ID for Promtail basic auth                  |
+
+Find `GRAFANA_ORG_ID` and `LOKI_USER_ID` in **Grafana Cloud > My Account > Stack > Details**
+(Prometheus and Loki sections respectively).
+
 ### Initial Setup
 
-1. Set `GRAFANA_API_TOKEN` environment variable on the VPS (Grafana Cloud API key with push
-   permissions for Loki and Prometheus)
+1. Set required environment variables on the VPS (see table above).
 
 2. Deploy the observability stack:
 
 ```bash
 cd observability
-GRAFANA_API_TOKEN=<token> docker compose -f docker-compose.observability.yml up -d
+GRAFANA_API_TOKEN=<token> GRAFANA_ORG_ID=<org-id> LOKI_USER_ID=<loki-id> \
+  docker compose -f docker-compose.observability.yml up -d
 ```
 
 1. Set application environment variables in Dokploy for trace export:

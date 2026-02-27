@@ -42,10 +42,12 @@
 
     - name: Find existing destination by name
       ansible.builtin.set_fact:
+        # default(false) is the idiomatic Ansible sentinel — avoids the "None" string
+        # ambiguity that default(None) produces in some Ansible/Jinja2 versions.
         existing_destination: >-
           {{ destinations_resp.json.result.data.json
              | selectattr('name', 'equalto', destination_name)
-             | list | first | default(None) }}
+             | list | first | default(false) }}
 
     - name: Create S3 destination
       ansible.builtin.uri:
@@ -67,13 +69,13 @@
         status_code: [200, 201]
         return_content: true
       register: create_dest_resp
-      when: existing_destination is none
+      when: not existing_destination
 
     - name: Set destination ID
       ansible.builtin.set_fact:
         destination_id: >-
           {{ existing_destination.destinationId
-             if existing_destination is not none
+             if existing_destination
              else create_dest_resp.json.result.data.json.destinationId }}
 
     - name: Show destination ID

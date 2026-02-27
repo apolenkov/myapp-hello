@@ -23,10 +23,10 @@
         for SVC in prod staging dev; do
           CNAME=$(docker ps --filter name="pg-${SVC}" --format "{{.Names}}" | head -1)
           if [ -n "$CNAME" ] && [ -f "/tmp/restore/postgres/myapp_${SVC}.sql.gz" ]; then
-            docker exec "$CNAME" psql -U postgres -c "DROP DATABASE IF EXISTS myapp_db"
-            docker exec "$CNAME" psql -U postgres -c "CREATE DATABASE myapp_db"
+            docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "DROP DATABASE IF EXISTS myapp_db"
+            docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE DATABASE myapp_db"
             zcat "/tmp/restore/postgres/myapp_${SVC}.sql.gz" | \
-              docker exec -i "$CNAME" psql -U postgres myapp_db
+              docker exec -i "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres myapp_db
             echo "Restored: ${SVC}"
           fi
         done

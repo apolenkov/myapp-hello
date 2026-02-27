@@ -69,13 +69,10 @@ jobs:
           PG_ID="${{ matrix.postgresId }}"
           INPUT=$(jq -nc --arg id "$PG_ID" \
             '{"json":{"postgresId":$id}}')
-          ENCODED=$(python3 -c \
-            "import urllib.parse,sys; \
-             print(urllib.parse.quote(sys.argv[1]))" \
-            "$INPUT")
 
-          RESP=$(curl -sf \
-            "$DOKPLOY_URL/api/trpc/postgres.one?input=$ENCODED" \
+          RESP=$(curl -sf -G \
+            "$DOKPLOY_URL/api/trpc/postgres.one" \
+            --data-urlencode "input=$INPUT" \
             -H "x-api-key: $DOKPLOY_TOKEN")
 
           BACKUP_ID=$(echo "$RESP" | jq -r \

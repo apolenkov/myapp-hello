@@ -32,11 +32,17 @@ update_app() {
 
   echo "Updating $env_name ($app_id) → sourceType=docker, image=$REGISTRY/$IMAGE:latest"
 
+  local json
+  json=$(jq -nc \
+    --arg applicationId "$app_id" \
+    --arg dockerImage "$REGISTRY/$IMAGE:latest" \
+    '{"json": {"applicationId": $applicationId, "sourceType": "docker", "dockerImage": $dockerImage}}')
+
   curl -sf -X POST \
     "$DOKPLOY_URL/api/trpc/application.update" \
     -H "x-api-key: $DOKPLOY_TOKEN" \
     -H "Content-Type: application/json" \
-    -d "{\"json\":{\"applicationId\":\"$app_id\",\"sourceType\":\"docker\",\"dockerImage\":\"$REGISTRY/$IMAGE:latest\"}}"
+    -d "$json"
 
   echo ""
   echo "$env_name updated ✓"
@@ -51,8 +57,9 @@ echo "--- Current app states ---"
 for pair in "$DEV_APP_ID:dev" "$STAGING_APP_ID:staging" "$PROD_APP_ID:production"; do
   app_id="${pair%%:*}"
   env_name="${pair##*:}"
-  source_type=$(curl -s "$DOKPLOY_URL/api/trpc/application.one?input=%7B%22json%22%3A%7B%22applicationId%22%3A%22$app_id%22%7D%7D" \
-    -H "x-api-key: $DOKPLOY_TOKEN" | jq -r '.result.data.json.sourceType' 2>/dev/null || echo "unknown")
+  response=$(curl -s "$DOKPLOY_URL/api/trpc/application.one?input=%7B%22json%22%3A%7B%22applicationId%22%3A%22$app_id%22%7D%7D" \
+    -H "x-api-key: $DOKPLOY_TOKEN")
+  source_type=$(jq -r '.result.data.json.sourceType' <<< "$response") || source_type="unknown (jq parse error)"
   echo "$env_name: sourceType=$source_type"
 done
 

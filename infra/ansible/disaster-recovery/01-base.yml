@@ -31,10 +31,39 @@
         rule: allow
         port: '443'
 
-    - name: Allow Dokploy admin
+    # Port 3000 = Dokploy admin panel.
+    # admin_ip must be set in vars/secrets.yml (e.g. your office or home IP).
+    # For SSH tunnel access instead: close port 3000 entirely and use
+    #   ssh -L 3000:localhost:3000 user@server
+    - name: Allow Dokploy UI port from admin IP only
       ufw:
         rule: allow
         port: '3000'
+        proto: tcp
+        src: '{{ admin_ip }}'
+      when: admin_ip is defined
+
+    # x-ui admin panel (Xray/V2Ray management UI).
+    # xui_port must be set in vars/secrets.yml (custom port configured in x-ui settings).
+    # Restricted to admin IP only — same rationale as Dokploy port 3000.
+    - name: Allow x-ui admin panel from admin IP only
+      ufw:
+        rule: allow
+        port: '{{ xui_port | string }}'
+        proto: tcp
+        src: '{{ admin_ip }}'
+      when: xui_port is defined and admin_ip is defined
+
+    # Xray inbound ports (VPN client connections — must be open to all).
+    # xray_inbound_ports must be set in vars/secrets.yml as a list of {port, proto} dicts.
+    # Example: [{port: '443', proto: 'tcp'}, {port: '8443', proto: 'tcp'}]
+    - name: Allow Xray inbound ports
+      ufw:
+        rule: allow
+        port: '{{ item.port | string }}'
+        proto: "{{ item.proto | default('tcp') }}"
+      loop: '{{ xray_inbound_ports }}'
+      when: xray_inbound_ports is defined
 
     - name: Start fail2ban
       service:

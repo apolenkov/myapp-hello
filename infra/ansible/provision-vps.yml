@@ -107,7 +107,6 @@
         cmd: bash /tmp/dokploy-install.sh
         executable: /bin/bash
       when: not dokploy_dir.stat.exists
-      changed_when: true
       timeout: 300
 
     - name: Remove Dokploy installer
@@ -137,7 +136,7 @@
     - name: Enable unattended security upgrades
       ansible.builtin.command:
         cmd: dpkg-reconfigure -pmedium unattended-upgrades
-      changed_when: true
+      changed_when: false
 
     # ── Summary ──────────────────────────────────────────────────────
     - name: Show next steps

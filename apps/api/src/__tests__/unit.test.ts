@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common'
 import type { ArgumentsHost, CallHandler, ExecutionContext } from '@nestjs/common'
+import type { ConfigService } from '@nestjs/config'
 import type { AbstractHttpAdapter, Reflector } from '@nestjs/core'
 import type { JwtService } from '@nestjs/jwt'
 import { SentryGlobalFilter } from '@sentry/nestjs/setup'
@@ -30,6 +31,37 @@ describe('JwtAuthGuard — missing JWT_SECRET at runtime', () => {
     } as unknown as ExecutionContext
 
     expect(() => guard.canActivate(mockCtx)).toThrow(UnauthorizedException)
+  })
+})
+
+describe('JwtAuthGuard — non-JWT errors propagate instead of being swallowed', () => {
+  it('re-throws unexpected errors from jwt.verify rather than returning 401', () => {
+    const unexpectedError = new Error('Database connection failed')
+    const mockJwtService = {
+      verify: vi.fn().mockImplementation(() => {
+        throw unexpectedError
+      }),
+    } as unknown as JwtService
+    const mockConfig = {
+      get: vi.fn().mockReturnValue('some-secret'),
+    } as unknown as ConfigService
+    const mockReflector = {
+      getAllAndOverride: vi.fn().mockReturnValue(false),
+    } as unknown as Reflector
+    const guard = new JwtAuthGuard(mockJwtService, mockConfig, mockReflector)
+    const mockCtx = {
+      getHandler: vi.fn(),
+      getClass: vi.fn(),
+      switchToHttp: vi.fn().mockReturnValue({
+        getRequest: vi.fn().mockReturnValue({
+          headers: { authorization: 'Bearer some.valid.token' },
+        }),
+      }),
+    } as unknown as ExecutionContext
+
+    // Non-JWT errors must propagate, not be silently converted to UnauthorizedException
+    expect(() => guard.canActivate(mockCtx)).toThrow('Database connection failed')
+    expect(() => guard.canActivate(mockCtx)).not.toThrow(UnauthorizedException)
   })
 })
 
@@ -139,7 +171,7 @@ describe('SentryGlobalFilter — httpAdapter prevents applicationRef TypeError',
   })
 })
 
-describe('AppService — config fallback values', () => {
+describe('AppService — getHello() returns defaults when env vars are undefined', () => {
   it('uses fallback env and app name when config returns undefined', async () => {
     const mockDb = createMockDatabaseService()
     const mockConfig = createUndefinedConfigService()

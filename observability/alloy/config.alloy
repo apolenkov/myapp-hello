@@ -57,7 +57,7 @@ prometheus.remote_write "metrics" {
     url = "https://prometheus-prod-65-prod-eu-west-2.grafana.net/api/prom/push"
 
     basic_auth {
-      username = "2998774"
+      username = env("GRAFANA_ORG_ID")
       password = env("GRAFANA_API_TOKEN")
     }
   }
