@@ -14,18 +14,14 @@ export const createUndefinedConfigService = (): ConfigService =>
  * Create a mock ConfigService that returns a fixed value for all keys.
  * Useful for DatabaseService tests where only DATABASE_URL matters.
  */
-export const createSingleValueConfigService = (
-  value: string | undefined,
-): ConfigService =>
+export const createSingleValueConfigService = (value: string | undefined): ConfigService =>
   ({ get: (): string | undefined => value }) as unknown as ConfigService
 
 /**
  * Create a mock DatabaseService with a successful ping response.
  * Override ping behavior via vi.spyOn on the returned mock.
  */
-export const createMockDatabaseService = (
-  pingResult = 'ok',
-): DatabaseService =>
+export const createMockDatabaseService = (pingResult = 'ok'): DatabaseService =>
   ({
     ping: vi.fn().mockResolvedValue(pingResult),
   }) as unknown as DatabaseService

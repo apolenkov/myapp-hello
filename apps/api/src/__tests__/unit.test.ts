@@ -33,17 +33,23 @@ describe('JwtAuthGuard — missing JWT_SECRET at runtime', () => {
   })
 })
 
+const TEST_ROUTE = '/some-unknown-path'
+
 describe('MetricsInterceptor — route fallback to req.path', () => {
   it('uses req.path as route when req.route is undefined and records metrics', async () => {
-    const recordSpy = vi.spyOn(metricsModule.httpRequestDuration, 'record').mockImplementation(() => undefined)
-    const addSpy = vi.spyOn(metricsModule.httpRequestsTotal, 'add').mockImplementation(() => undefined)
+    const recordSpy = vi
+      .spyOn(metricsModule.httpRequestDuration, 'record')
+      .mockImplementation(() => undefined)
+    const addSpy = vi
+      .spyOn(metricsModule.httpRequestsTotal, 'add')
+      .mockImplementation(() => undefined)
 
     const interceptor = new MetricsInterceptor()
     const mockCtx = {
       switchToHttp: vi.fn().mockReturnValue({
         getRequest: vi.fn().mockReturnValue({
           route: undefined,
-          path: '/some-unknown-path',
+          path: TEST_ROUTE,
           method: 'GET',
         }),
         getResponse: vi.fn().mockReturnValue({ statusCode: 200 }),
@@ -60,14 +66,14 @@ describe('MetricsInterceptor — route fallback to req.path', () => {
     expect(duration).toBeGreaterThanOrEqual(0)
     expect(attrs).toEqual({
       method: 'GET',
-      route: '/some-unknown-path',
+      route: TEST_ROUTE,
       status_code: '200',
     })
 
     expect(addSpy).toHaveBeenCalledOnce()
     expect(addSpy).toHaveBeenCalledWith(1, {
       method: 'GET',
-      route: '/some-unknown-path',
+      route: TEST_ROUTE,
       status_code: '200',
     })
 
@@ -76,8 +82,12 @@ describe('MetricsInterceptor — route fallback to req.path', () => {
   })
 
   it('skips metrics for excluded paths', async () => {
-    const recordSpy = vi.spyOn(metricsModule.httpRequestDuration, 'record').mockImplementation(() => undefined)
-    const addSpy = vi.spyOn(metricsModule.httpRequestsTotal, 'add').mockImplementation(() => undefined)
+    const recordSpy = vi
+      .spyOn(metricsModule.httpRequestDuration, 'record')
+      .mockImplementation(() => undefined)
+    const addSpy = vi
+      .spyOn(metricsModule.httpRequestsTotal, 'add')
+      .mockImplementation(() => undefined)
 
     const interceptor = new MetricsInterceptor()
     const mockCtx = {

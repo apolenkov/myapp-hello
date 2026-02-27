@@ -55,17 +55,16 @@ System_Boundary(vps, "VPS — Docker Swarm") {
     ContainerDb(pg_prod, "PostgreSQL prod", "PostgreSQL 18", "Production database")
     ContainerDb(pg_staging, "PostgreSQL staging", "PostgreSQL 18", "Staging database")
     ContainerDb(pg_dev, "PostgreSQL dev", "PostgreSQL 18", "Dev database")
-    Container(grafana, "Grafana", "Grafana 11.5", "Dashboards, alerts, :3100")
-    Container(prometheus, "Prometheus", "Prometheus v3.2", "Metrics storage, scrape, 30d retention")
-    Container(loki, "Loki", "Grafana Loki 3.4", "Log aggregation, TSDB, 30d retention")
-    Container(tempo, "Tempo", "Grafana Tempo 2.7", "Distributed traces, OTLP receiver")
-    Container(promtail, "Promtail", "Grafana Promtail 3.4", "Docker log collector")
+    Container(promtail, "Promtail", "Grafana Promtail 3.4.2", "Docker log collector, pushes to Grafana Cloud Loki")
+    Container(alloy, "Grafana Alloy", "Grafana Alloy v1.8.0", "Metrics scrape + remote_write to Grafana Cloud Prometheus")
 }
 System_Ext(github, "GitHub Actions")
 System_Ext(ghcr, "GHCR", "Docker image registry")
+System_Ext(grafana_cloud, "Grafana Cloud", "Loki, Prometheus, Tempo, dashboards, alerts")
+System_Ext(sentry, "Sentry", "Error tracking SaaS")
 Rel(user, traefik, "HTTPS", ":443")
 Rel(dev, dokploy_admin, "Manage deployments", "HTTP :3000")
-Rel(dev, grafana, "View dashboards", "HTTP :3100")
+Rel(dev, grafana_cloud, "View dashboards", "HTTPS")
 Rel(github, ghcr, "Push image", "SHA tag + latest")
 Rel(github, dokploy_admin, "Trigger deploy", "REST /api/trpc/application.deploy")
 Rel(dokploy_admin, ghcr, "Pull image", "docker pull")
@@ -75,13 +74,11 @@ Rel(traefik, app_dev, "Route dev.*", "HTTP :3001")
 Rel(app_prod, pg_prod, "SQL", "TCP :5432")
 Rel(app_staging, pg_staging, "SQL", "TCP :5432")
 Rel(app_dev, pg_dev, "SQL", "TCP :5432")
-Rel(prometheus, app_prod, "Scrape /metrics", "HTTP :3001")
-Rel(promtail, loki, "Push logs", "HTTP :3100")
-Rel(app_prod, tempo, "Send traces", "OTLP HTTP :4318 (Bearer/Basic)")
-
-Rel(grafana, prometheus, "Query metrics", "HTTP :9090")
-Rel(grafana, loki, "Query logs", "HTTP :3100")
-Rel(grafana, tempo, "Query traces", "HTTP :3200")
+Rel(alloy, app_prod, "Scrape /metrics", "HTTP :3001 every 15s")
+Rel(alloy, grafana_cloud, "Remote write metrics", "HTTPS basic auth")
+Rel(promtail, grafana_cloud, "Push logs", "HTTPS basic auth")
+Rel(app_prod, grafana_cloud, "Send traces", "OTLP HTTP")
+Rel(app_prod, sentry, "Send errors", "HTTPS (SENTRY_DSN)")
 LAYOUT_WITH_LEGEND()
 @enduml
 ```
@@ -124,11 +121,11 @@ Rel(auth_guard, auth_module, "Provided by")
 Rel(metrics_int, metrics_module, "Provided by")
 Rel(db_module, postgres, "TCP :5432")
 Rel(migrate, postgres, "Run migrations")
-Rel(otel, prometheus_ext, "Serve /metrics", "HTTP")
-Rel(otel, tempo_ext, "Send traces", "OTLP HTTP :4318 (Bearer/Basic)")
+Rel(otel, alloy_ext, "Serve /metrics", "HTTP :3001")
+Rel(otel, grafana_cloud_ext, "Send traces", "OTLP HTTP")
 
-Container(prometheus_ext, "Prometheus", "Scrapes /metrics")
-Container(tempo_ext, "Tempo", "Receives OTLP traces")
+Container(alloy_ext, "Grafana Alloy", "Scrapes /metrics, pushes to Grafana Cloud")
+System_Ext(grafana_cloud_ext, "Grafana Cloud", "Tempo (traces), Prometheus (metrics via Alloy)")
 LAYOUT_WITH_LEGEND()
 @enduml
 ```
@@ -161,12 +158,9 @@ Deployment_Node(vps, "VPS Ubuntu", "185.239.48.55") {
             ContainerInstance(pg_staging, "pg-staging", "postgres:18-alpine", "Volume: pg_staging_data")
             ContainerInstance(pg_dev, "pg-dev", "postgres:18-alpine", "Volume: pg_dev_data")
         }
-        Deployment_Node(obs_layer, "Observability Layer") {
-            ContainerInstance(grafana, "Grafana", "grafana:11.5.2", "Port: 3100, dashboards + alerts")
-            ContainerInstance(prometheus, "Prometheus", "prom/prometheus:v3.2.1", "30d retention, 1GB max")
-            ContainerInstance(loki, "Loki", "grafana/loki:3.4.2", "TSDB v13, 30d retention")
-            ContainerInstance(tempo, "Tempo", "grafana/tempo:2.7.1", "OTLP HTTP+gRPC, span-metrics")
-            ContainerInstance(promtail, "Promtail", "grafana/promtail:3.4.2", "Docker SD auto-discovery")
+        Deployment_Node(obs_layer, "Observability Agents") {
+            ContainerInstance(promtail, "Promtail", "grafana/promtail:3.4.2", "Docker SD, pushes logs, 0.1 CPU / 128M")
+            ContainerInstance(alloy, "Grafana Alloy", "grafana/alloy:v1.8.0", "Scrape + remote_write, 0.2 CPU / 256M")
         }
     }
 }
@@ -174,13 +168,20 @@ Deployment_Node(ci, "GitHub", "github.com") {
     InfrastructureNode(actions, "GitHub Actions", "CI/CD pipeline")
     InfrastructureNode(ghcr, "GHCR", "Docker image registry")
 }
+Deployment_Node(grafana_cloud, "Grafana Cloud", "*.grafana.net") {
+    InfrastructureNode(gc_loki, "Loki", "Log storage + query")
+    InfrastructureNode(gc_prom, "Prometheus", "Metrics storage + query")
+    InfrastructureNode(gc_tempo, "Tempo", "Trace storage + query")
+    InfrastructureNode(gc_grafana, "Grafana", "Dashboards + alerts")
+}
 Rel(dns_record, traefik, "Resolves to")
 Rel(traefik, app_prod, "Route prod domain")
 Rel(actions, ghcr, "Build & push image")
 Rel(actions, traefik, "Trigger deploy via Dokploy API")
-Rel(prometheus, app_prod, "Scrape /metrics")
-Rel(promtail, loki, "Push logs")
-Rel(app_prod, tempo, "OTLP traces", "HTTP :4318")
+Rel(alloy, app_prod, "Scrape /metrics every 15s")
+Rel(alloy, gc_prom, "Remote write metrics", "HTTPS")
+Rel(promtail, gc_loki, "Push logs", "HTTPS")
+Rel(app_prod, gc_tempo, "OTLP traces", "HTTPS")
 
 LAYOUT_WITH_LEGEND()
 @enduml
@@ -213,14 +214,15 @@ NestJS built-in `enableShutdownHooks()` handles `SIGTERM` and `SIGINT`. On shutd
 the `OnModuleDestroy` lifecycle hooks (draining the PostgreSQL connection pool via `DatabaseService`)
 and stops accepting new connections.
 
-### Observability via OpenTelemetry
+### Push-Based Observability via Grafana Cloud
 
 The application uses OpenTelemetry SDK for vendor-neutral instrumentation. `instrumentation.ts` must
 be imported before any other module to enable monkey-patching of `http`, `express` (NestJS adapter),
-and `pg`.
-Metrics are exposed via a Prometheus exporter at `/metrics`, and traces are sent to Tempo via OTLP.
-Promtail collects structured Pino logs from Docker and forwards them to Loki. All three signals
-(metrics, logs, traces) are correlated in Grafana via `traceId`.
+and `pg`. Only two lightweight agents run on the VPS (Promtail for logs, Grafana Alloy for metrics),
+pushing telemetry to Grafana Cloud. Traces are sent directly from the app via OTLP HTTP. This
+eliminates the need for local Grafana, Prometheus, Loki, and Tempo instances, reducing the VPS
+resource footprint from ~0.85 CPU / 896 MB to ~0.3 CPU / 384 MB. Dashboards, alerts, and data
+retention are managed entirely in Grafana Cloud.
 
 ## See Also
 

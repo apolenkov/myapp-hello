@@ -1,0 +1,9 @@
+# Ansible-lint configuration
+skip_list:
+  - yaml[line-length]  # Handled by project-level prettier/markdownlint
+  - name[casing]       # Allow flexible task naming
+  - command-instead-of-shell  # Some tasks require shell features
+
+warn_list:
+  - no-changed-when    # Warn but don't fail on missing changed_when
+  - risky-shell-pipe   # Warn about pipes in shell commands

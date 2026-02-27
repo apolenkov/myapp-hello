@@ -46,7 +46,12 @@ export async function runMigrations(pool: Pool): Promise<void> {
 
     await client.query('COMMIT')
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => undefined)
+    await client.query('ROLLBACK').catch((rollbackErr: unknown) => {
+      logger.warn(
+        'ROLLBACK failed',
+        rollbackErr instanceof Error ? rollbackErr.stack : String(rollbackErr),
+      )
+    })
     throw err
   } finally {
     client.release()

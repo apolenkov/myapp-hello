@@ -20,7 +20,10 @@ const TEST_CONFIG: Record<string, string> = {
 /** Create a mock ConfigService from a config record. */
 export const createMockConfigService = (
   config: Record<string, string>,
-): { get: <T = string>(key: string, defaultValue?: T) => T | undefined; getOrThrow: (key: string) => string } => ({
+): {
+  get: <T = string>(key: string, defaultValue?: T) => T | undefined
+  getOrThrow: (key: string) => string
+} => ({
   get: <T = string>(key: string, defaultValue?: T): T | undefined =>
     (config[key] as T | undefined) ?? defaultValue,
   getOrThrow: (key: string): string => {

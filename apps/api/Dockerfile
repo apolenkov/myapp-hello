@@ -1,12 +1,13 @@
+# Pin versions: update periodically via `docker pull` + `npm view turbo version`
 # ── Pruner ─────────────────────────────────────────────────────────────────
-FROM node:22-alpine AS pruner
-RUN npm i -g turbo@2
+FROM node:22.22.0-alpine3.22 AS pruner
+RUN npm i -g turbo@2.8.11
 WORKDIR /app
 COPY . .
 RUN turbo prune @myapp/api --docker
 
 # ── Builder ────────────────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
+FROM node:22.22.0-alpine3.22 AS builder
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
 RUN npm ci
@@ -14,7 +15,7 @@ COPY --from=pruner /app/out/full/ .
 RUN npx turbo run build --filter=@myapp/api
 
 # ── Production ─────────────────────────────────────────────────────────────
-FROM node:22-alpine AS production
+FROM node:22.22.0-alpine3.22 AS production
 RUN apk add --no-cache dumb-init
 
 ARG SENTRY_RELEASE

@@ -104,7 +104,7 @@ sequenceDiagram
    multiple replicas can start at the same time, only one instance proceeds — the rest block until
    the lock is released.
 2. A `migrations` table is created if it does not exist.
-3. All `.sql` files in the `apps/api/migrations/` directory are read and sorted alphabetically. Each file is
+3. All `.sql` files in `apps/api/migrations/` are read and sorted alphabetically. Each file is
    checked against the `migrations` table. Already-applied files are skipped.
 4. New files are executed within the same transaction. On success, the filename is recorded and the
    transaction is committed. On failure, the transaction is rolled back and the application exits
@@ -148,10 +148,10 @@ The next application startup will apply it automatically.
 
 ### Rate Limiting
 
-| Variable         | Default  | Notes                                   |
-| ---------------- | -------- | --------------------------------------- |
-| `THROTTLE_TTL`   | `60000`  | Time window in milliseconds             |
-| `THROTTLE_LIMIT` | `100`    | Max requests per `THROTTLE_TTL` window  |
+| Variable         | Default | Notes                                  |
+| ---------------- | ------- | -------------------------------------- |
+| `THROTTLE_TTL`   | `60000` | Time window in milliseconds            |
+| `THROTTLE_LIMIT` | `100`   | Max requests per `THROTTLE_TTL` window |
 
 ### Error Tracking
 
@@ -161,13 +161,13 @@ The next application startup will apply it automatically.
 
 ### Observability (OpenTelemetry)
 
-| Variable                       | Default                 | Notes                                                            |
-| ------------------------------ | ----------------------- | ---------------------------------------------------------------- |
-| `OTEL_SERVICE_NAME`            | value of `APP_NAME`     | Service name in traces and metrics                               |
-| `SERVICE_NAMESPACE`            | `my-application-group`  | Groups related services in dashboards                            |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | —                       | OTLP gateway URL (e.g. Grafana Cloud); traces disabled when unset |
-| `OTEL_EXPORTER_OTLP_HEADERS`  | —                       | Auth header, e.g. `Authorization=Basic <base64(id:token)>`      |
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf`         | OTLP transport protocol                                         |
+| Variable                      | Default                | Notes                                                             |
+| ----------------------------- | ---------------------- | ----------------------------------------------------------------- |
+| `OTEL_SERVICE_NAME`           | value of `APP_NAME`    | Service name in traces and metrics                                |
+| `SERVICE_NAMESPACE`           | `my-application-group` | Groups related services in dashboards                             |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | —                      | OTLP gateway URL (e.g. Grafana Cloud); traces disabled when unset |
+| `OTEL_EXPORTER_OTLP_HEADERS`  | —                      | Auth header, e.g. `Authorization=Basic <base64(id:token)>`        |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf`        | OTLP transport protocol                                           |
 
 When running with `docker compose -f infra/docker-compose.yml up`, all defaults are applied
 automatically.

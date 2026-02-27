@@ -116,12 +116,12 @@ describe('DatabaseService — with database', () => {
     const pool = getPool(service)
     const mockResult = { rows: [{ id: 1 }], command: 'SELECT', rowCount: 1 }
 
-    vi.spyOn(pool, 'query').mockResolvedValue(mockResult as never)
+    const querySpy = vi.spyOn(pool, 'query').mockResolvedValue(mockResult as never)
 
     const result = await service.query('SELECT $1::int AS id', [1])
 
     expect(result).toBe(mockResult)
-    expect(pool.query).toHaveBeenCalledWith('SELECT $1::int AS id', [1])
+    expect(querySpy).toHaveBeenCalledWith('SELECT $1::int AS id', [1])
   })
 
   it('should close pool on module destroy', async () => {

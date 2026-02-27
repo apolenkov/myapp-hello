@@ -1,38 +1,88 @@
 # Observability Guide
 
-This document covers the observability stack for myapp-hello: architecture, access, dashboards,
-alerts, adding metrics to new services, retention policies, and troubleshooting.
+Push-based observability stack: lightweight agents on the VPS send telemetry to Grafana Cloud. No
+local storage, no local Grafana instance.
 
-## Stack Overview
+## Architecture Overview
 
-| Component  | Version | Purpose                     | Port (internal) |
-| ---------- | ------- | --------------------------- | --------------- |
-| Grafana    | 11.5.2  | Dashboards, alerts, explore | 3100 (ext)      |
-| Prometheus | v3.2.1  | Metrics storage + scraping  | 9090            |
-| Loki       | 3.4.2   | Log aggregation             | 3100            |
-| Tempo      | 2.7.1   | Distributed tracing (OTLP)  | 3200 / 4318     |
-| Promtail   | 3.4.2   | Docker log collector        | —               |
+| Signal  | Collector                     | Destination                | Auth              |
+| ------- | ----------------------------- | -------------------------- | ----------------- |
+| Logs    | Promtail (grafana/promtail)   | Grafana Cloud Loki         | Basic auth        |
+| Metrics | Grafana Alloy (grafana/alloy) | Grafana Cloud Prometheus   | Basic auth        |
+| Traces  | OTel SDK (in-app)             | Grafana Cloud Tempo (OTLP) | Bearer / env vars |
+| Errors  | Sentry SDK (in-app)           | Sentry SaaS                | DSN env var       |
 
-All services run in Docker Compose on the VPS as a separate stack from the application. Resource
-budget: ~0.85 CPU, ~896 MB RAM total.
+Only **2 containers** run on the VPS: Promtail + Alloy. Resource budget: ~0.3 CPU, ~384 MB RAM.
 
 <!-- prettier-ignore -->
 ```mermaid
 %%{init: {theme: 'neutral'}}%%
 flowchart TD
-    app[myapp-hello\nNode.js + OTel SDK] -->|OTLP HTTP :4318| tempo[Tempo]
-    prometheus[Prometheus] -->|scrape :3001/metrics| app
-    promtail[Promtail] -->|Docker log files| loki[Loki]
-    tempo -->|span-metrics remote_write| prometheus
-    grafana[Grafana :3100] --> prometheus & loki & tempo
+    subgraph VPS["VPS — Docker Swarm"]
+        app["myapp-hello\nNode.js + OTel SDK"]
+        promtail["Promtail\n(grafana/promtail:3.4.2)"]
+        alloy["Grafana Alloy\n(grafana/alloy:v1.8.0)"]
+    end
+
+    subgraph GC["Grafana Cloud"]
+        loki["Loki\nlogs-prod-012.grafana.net"]
+        prom["Prometheus\nprometheus-prod-65-prod-eu-west-2"]
+        tempo["Tempo\nOTLP endpoint"]
+        grafana["Grafana\nDashboards + Alerts"]
+    end
+
+    sentry["Sentry SaaS"]
+
+    promtail -->|"Push logs\n(basic auth)"| loki
+    alloy -->|"Scrape :3001/metrics\nevery 15s"| app
+    alloy -->|"Remote write\n(basic auth)"| prom
+    app -->|"OTLP HTTP\n(env var auth)"| tempo
+    app -.->|"Errors\n(SENTRY_DSN)"| sentry
+    grafana --> loki & prom & tempo
 ```
 
-## Three Pillars of Observability
+## Three Pillars
 
-### Metrics (Prometheus + OpenTelemetry)
+### Logs (Promtail to Grafana Cloud Loki)
 
-The application uses OpenTelemetry SDK (`@opentelemetry/sdk-node`) with a Prometheus exporter.
-Metrics are exposed at `GET /metrics` in Prometheus text format.
+**Collector:** Promtail (`grafana/promtail:3.4.2`) running as a Docker service on the VPS.
+
+**How it works:**
+
+1. Auto-discovers all Docker containers via `/var/run/docker.sock`
+2. Parses Pino JSON structured logs (NestJS output)
+3. Extracts fields: `level`, `msg`, `req.id`, `req.method`, `req.url`, `res.statusCode`,
+   `responseTime`
+4. Maps Pino numeric levels to names (10=trace, 20=debug, 30=info, 40=warn, 50=error, 60=fatal)
+5. Drops health check noise (`GET /health` every 30s from Docker HEALTHCHECK)
+6. Pushes to Grafana Cloud Loki at `https://logs-prod-012.grafana.net/loki/api/v1/push`
+
+**Labels applied:** `container`, `service`, `stack`, `image`, `environment`, `level`, `req_method`,
+`res_status`
+
+**Service name normalization:** Strips Dokploy/Swarm random suffixes
+(`myapp-hello-prod-qps6m7` becomes `myapp-hello-prod`) for consistent label values.
+
+**Non-JSON logs** (e.g., PostgreSQL) are stored as-is without pipeline parsing.
+
+**Config:** `observability/promtail/promtail-config.yml`
+
+### Metrics (Grafana Alloy to Grafana Cloud Prometheus)
+
+**Collector:** Grafana Alloy (`grafana/alloy:v1.8.0`) running as a Docker service on the VPS.
+
+**How it works:**
+
+1. Docker service discovery (`discovery.docker`) filters containers with `monitoring=true` label
+2. Relabeling extracts container name, service name (Swarm/Compose), environment
+3. Strips Swarm random suffixes for consistent labeling
+4. Rewrites target port to `:3001` (app metrics port)
+5. Scrapes `/metrics` endpoint every 15s
+6. Pushes metrics via `remote_write` to Grafana Cloud Prometheus at
+   `https://prometheus-prod-65-prod-eu-west-2.grafana.net/api/prom/push`
+
+**App-side metrics** are exposed via OTel `PrometheusExporter` at `GET /metrics` in Prometheus text
+format.
 
 **Custom metrics:**
 
@@ -41,296 +91,157 @@ Metrics are exposed at `GET /metrics` in Prometheus text format.
 | `http_server_request_duration_seconds` | Histogram | `http_method`, `http_route`, `http_status_code` |
 | `http_server_request_total_total`      | Counter   | `http_method`, `http_route`, `http_status_code` |
 
-**Auto-instrumentation metrics** (via `@opentelemetry/auto-instrumentations-node`):
+**Auto-instrumentation metrics** (via OTel auto-instrumentations):
 
 - HTTP client/server duration and size
 - Express route handler timing
 - PostgreSQL query timing
-
-**Default OTel metrics:**
-
 - `target_info` with `service_name` and `service_version` labels
 
-Prometheus scrapes all `myapp*` containers via Docker service discovery, rewriting the port to
-`:3001`.
+**Config:** `observability/alloy/config.alloy`
 
-### Logs (Loki + Promtail)
+### Traces (OTel SDK to Grafana Cloud Tempo)
 
-Promtail auto-discovers all Docker containers via `docker_sd_configs` and pushes logs to Loki.
+**Collector:** Built into the application via `instrumentation.ts` (loaded with `--require` before
+the app starts).
 
-**Pino JSON pipeline:** Promtail parses structured Pino output and extracts:
+**How it works:**
 
-- `level` (mapped from numeric: 10→trace, 20→debug, 30→info, 40→warn, 50→error, 60→fatal)
-- `reqId` (correlation ID)
-- `responseTime` (ms)
-- `req.method`, `res.statusCode`
+1. OTel `NodeSDK` initializes with `OTLPTraceExporter` configured via environment variables
+2. Auto-instruments: Express, PostgreSQL (`pg`), HTTP client/server
+3. Sends traces directly to Grafana Cloud Tempo via OTLP HTTP
+4. No local trace collector needed
 
-**Labels:** `container`, `service`, `image`, `environment`, `stack`
+**Configuration via environment variables:**
 
-**Noise reduction:** Health check logs (`GET /health`) are dropped to avoid Promtail/Loki noise
-from Docker HEALTHCHECK running every 30 seconds.
+| Variable                      | Purpose                                         |
+| ----------------------------- | ----------------------------------------------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Grafana Cloud OTLP gateway URL                  |
+| `OTEL_EXPORTER_OTLP_HEADERS`  | `Authorization=Basic <base64(id:token)>`        |
+| `OTEL_SERVICE_NAME`           | Service name in traces (default: `myapp-hello`) |
 
-**Non-JSON logs** (e.g., PostgreSQL) are stored as-is without pipeline parsing.
+**Trace suppression:** Health check paths (`/health`, `/metrics`) are excluded via
+`ignoreIncomingRequestHook` to reduce noise.
 
-### Traces (Tempo + OTLP)
+**No-op without endpoint:** If `OTEL_EXPORTER_OTLP_ENDPOINT` is not set, the trace exporter is
+disabled and only metrics are exported.
 
-The application sends traces to Tempo via OTLP HTTP (port 4318). Tempo generates span-metrics and
-writes them to Prometheus via `remote_write`.
+## Errors (Sentry)
 
-**Trace-log correlation:** Loki has a `derivedField` that extracts `traceId` from log lines and
-links to Tempo. Clicking a trace ID in Grafana Explore (Loki) opens the corresponding trace in
-Tempo.
+**SDK:** `@sentry/nestjs` with `SentrySpanProcessor` integrated into OTel pipeline.
 
-**Trace-metric correlation:** Tempo is configured with `tracesToMetrics` linking to the Prometheus
-datasource.
+**Behavior:**
 
-## Accessing Grafana
+- No-op without `SENTRY_DSN` environment variable (safe for local development)
+- Traces sample rate: 10% in production, 100% in development
+- Source maps uploaded in CI via `@sentry/cli` for readable stack traces
 
-| Environment | URL                         | Credentials        |
-| ----------- | --------------------------- | ------------------ |
-| Production  | `http://185.239.48.55:3100` | From Ansible vault |
+**Config:** Initialized in `instrumentation.ts` before OTel SDK starts.
 
-Default admin credentials are set via Ansible vault variables `grafana_admin_user` and
-`grafana_admin_password`.
+## Local Development
 
-## Dashboards
+Locally, the observability stack is **not running** (no Promtail/Alloy in `infra/docker-compose.yml`).
+This is intentional — local development relies on:
 
-Three pre-built dashboards are auto-provisioned from JSON files:
+| Signal  | Local access                                |
+| ------- | ------------------------------------------- |
+| Logs    | `docker compose logs -f app` (Pino JSON)    |
+| Metrics | `curl http://localhost:3001/metrics`        |
+| Traces  | Disabled (no `OTEL_EXPORTER_OTLP_ENDPOINT`) |
+| Errors  | Disabled (no `SENTRY_DSN`)                  |
 
-### App Overview
-
-File: `observability/grafana/dashboards/app-overview.json`
-
-10 panels covering:
-
-- Request rate (req/s)
-- Error rate (% of 5xx)
-- p95 latency
-- Uptime (`up` metric)
-- Traffic by route and status code
-- Duration percentiles (p50, p95, p99)
-- Duration heatmap
-- 5xx errors by route
-- 4xx errors by route
-
-### Node Runtime
-
-File: `observability/grafana/dashboards/node-runtime.json`
-
-Runtime metrics:
-
-- CPU usage
-- Memory RSS
-- Heap used vs total
-- Event loop lag
-- HTTP server duration percentiles
-- Active requests
-
-### Logs Overview
-
-File: `observability/grafana/dashboards/logs-overview.json`
-
-Log analytics:
-
-- Log volume by level (stacked bar)
-- Log volume by service
-- Error log panel (level=error/fatal)
-- Slow requests (responseTime > 1000ms)
-- Live tail (last 100 log lines)
-
-## Alert Rules
-
-Alerts are configured via Grafana Unified Alerting (no external Alertmanager needed).
-
-### Critical
-
-| Alert         | Condition               | Duration |
-| ------------- | ----------------------- | -------- |
-| HighErrorRate | >5% of requests are 5xx | 5 min    |
-| ServiceDown   | `up == 0`               | 1 min    |
-
-### Warning
-
-| Alert            | Condition                     | Duration |
-| ---------------- | ----------------------------- | -------- |
-| HighResponseTime | p95 response time > 2s        | 5 min    |
-| HighLogErrorRate | >10 error-level logs in 5 min | 5 min    |
-
-Alert rules are defined in `observability/grafana/provisioning/alerting/alerts.yml`.
-
-## Adding Metrics to a New Service
-
-To instrument a new service (e.g., a Python Telegram bot):
-
-### 1. Expose a /metrics endpoint
-
-Use the appropriate Prometheus client library for your language:
-
-- **Node.js:** `@opentelemetry/sdk-node` + `@opentelemetry/exporter-prometheus` (as in myapp-hello)
-- **Python:** `prometheus_client` or `opentelemetry-exporter-prometheus`
-- **Go:** `prometheus/client_golang`
-
-### 2. Add container labels
-
-Promtail auto-discovers Docker containers. Add labels to your `docker-compose.yml`:
-
-```yaml
-services:
-  my-bot:
-    labels:
-      - 'com.docker.compose.service=my-bot'
-```
-
-Promtail will pick up logs automatically — no configuration change needed.
-
-### 3. Configure Prometheus scraping
-
-Add a new job to `observability/prometheus/prometheus.yml`:
-
-```yaml
-- job_name: my-bot
-  docker_sd_configs:
-    - host: unix:///var/run/docker.sock
-      refresh_interval: 30s
-  relabel_configs:
-    - source_labels: [__meta_docker_container_name]
-      regex: '.*my-bot.*'
-      action: keep
-    - source_labels: [__meta_docker_port_private]
-      regex: '8080' # your metrics port
-      action: keep
-```
-
-### 4. Add OTLP traces (optional)
-
-Set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable:
-
-```yaml
-environment:
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
-```
-
-### 5. Create a dashboard
-
-Copy an existing dashboard JSON from `observability/grafana/dashboards/` and modify the
-queries/panels to match your service metrics.
-
-### 6. Redeploy
+To test metrics locally:
 
 ```bash
-ansible-playbook infra-ansible/playbooks/07-observability.yml \
-  -i infra-ansible/inventory/hosts.yml --ask-vault-pass
+curl -s http://localhost:3001/metrics | head -20
 ```
 
-## Retention Policies
+## Deployment
 
-| Component  | Retention | Storage limit | Notes                           |
-| ---------- | --------- | ------------- | ------------------------------- |
-| Prometheus | 30 days   | 1 GB          | `--storage.tsdb.retention.size` |
-| Loki       | 30 days   | —             | Compactor auto-deletes          |
-| Tempo      | 30 days   | —             | Compactor auto-deletes          |
-| Grafana    | Unlimited | —             | Dashboards/config only          |
+### Initial Setup
 
-## Backup
+1. Set `GRAFANA_API_TOKEN` environment variable on the VPS (Grafana Cloud API key with push
+   permissions for Loki and Prometheus)
 
-### PostgreSQL Backups
-
-PostgreSQL databases are backed up daily at 03:00 UTC via the `db-backup.yml` GitHub Actions
-workflow. Backups are stored in Yandex Object Storage (S3-compatible), with 7-copy retention.
-PostgreSQL instances are auto-discovered via the Dokploy `project.all` API — no hardcoded IDs.
-
-Initial setup can be done via Ansible:
+2. Deploy the observability stack:
 
 ```bash
-ansible-playbook infra/ansible/setup-db-backups.yml -e @infra/ansible/vars/secrets.yml
+cd observability
+GRAFANA_API_TOKEN=<token> docker compose -f docker-compose.observability.yml up -d
 ```
 
-### Grafana Data
+1. Set application environment variables in Dokploy for trace export:
+   - `OTEL_EXPORTER_OTLP_ENDPOINT` (Grafana Cloud OTLP gateway)
+   - `OTEL_EXPORTER_OTLP_HEADERS` (authentication header)
+   - `SENTRY_DSN` (optional, for error tracking)
 
-Grafana dashboards and alert rules are provisioned from files in `observability/grafana/` and do not
-require backup. Runtime data (annotations, preferences) is stored in the `observability_grafana_data`
-Docker volume on the VPS.
+### Adding a New Service
 
-## Configuration Files
+To instrument a new service for metrics collection:
 
-| File                                                   | Purpose                        |
-| ------------------------------------------------------ | ------------------------------ |
-| `observability/docker-compose.observability.yml`       | Docker Compose for all 5 svc   |
-| `observability/loki/loki-config.yml`                   | Loki single-node config        |
-| `observability/promtail/promtail-config.yml`           | Docker SD + Pino JSON pipeline |
-| `observability/prometheus/prometheus.yml`              | Scrape targets + retention     |
-| `observability/tempo/tempo-config.yml`                 | OTLP receiver + span-metrics   |
-| `observability/grafana/provisioning/datasources/*.yml` | Auto-provision datasources     |
-| `observability/grafana/provisioning/dashboards/*.yml`  | Dashboard file provider        |
-| `observability/grafana/provisioning/alerting/*.yml`    | Unified alerting rules         |
-| `observability/grafana/dashboards/*.json`              | 3 pre-built dashboards         |
+1. **Expose `/metrics`** on port 3001 (or configure Alloy to use a different port)
+2. **Add the `monitoring=true` Docker label** to the service — Alloy auto-discovers it
+3. **Logs are automatic** — Promtail discovers all Docker containers, no config change needed
+4. **Traces (optional)** — set `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`
+   environment variables
+
+### Configuration Files
+
+| File                                             | Purpose                        |
+| ------------------------------------------------ | ------------------------------ |
+| `observability/docker-compose.observability.yml` | Docker Compose for 2 agents    |
+| `observability/promtail/promtail-config.yml`     | Docker SD + Pino JSON pipeline |
+| `observability/alloy/config.alloy`               | Alloy scrape + remote_write    |
+
+### Dashboards, Alerts, and Retention
+
+All managed in **Grafana Cloud UI** — no local provisioning files. Changes to dashboards and alert
+rules are made directly in the Grafana Cloud web interface.
 
 ## Troubleshooting
 
-### Grafana shows "No data"
+### Metrics not appearing in Grafana Cloud
 
-1. Check that the application container is running: `docker ps | grep myapp`
-2. Verify `/metrics` responds: `curl http://localhost:3001/metrics`
-3. Check Prometheus targets: open `http://localhost:9090/targets` — myapp should show as `UP`
-4. Verify the datasource in Grafana: **Configuration > Data Sources > Prometheus > Test**
+1. Check Alloy is running: `docker ps | grep alloy`
+2. Verify the app has `monitoring=true` label: `docker inspect <container> | jq '.[0].Config.Labels'`
+3. Verify `/metrics` responds: `curl http://localhost:3001/metrics`
+4. Check Alloy logs: `docker logs observability-alloy-1`
+5. Check Alloy UI targets: `http://<vps>:12345` (Alloy built-in UI)
 
-### Promtail not collecting logs
+### Logs not appearing in Grafana Cloud
 
-1. Check Promtail logs: `docker logs observability-promtail-1`
-2. Verify Docker socket access: the compose file mounts `/var/run/docker.sock`
-3. Check targets: `curl http://localhost:9080/targets` (Promtail API)
+1. Check Promtail is running: `docker ps | grep promtail`
+2. Check Promtail targets: `curl http://localhost:9080/targets`
+3. Check Promtail logs: `docker logs observability-promtail-1`
+4. Verify Docker socket access: compose file mounts `/var/run/docker.sock`
 
-### Traces not appearing in Tempo
+### Traces not appearing in Grafana Cloud
 
-1. Verify `OTEL_EXPORTER_OTLP_ENDPOINT` is set in the application environment
-2. Check Tempo logs: `docker logs observability-tempo-1`
-3. Test OTLP endpoint: `curl http://localhost:4318/v1/traces` (should return method not allowed)
-4. Verify Grafana Cloud trace readability with read-only token:
+1. Verify `OTEL_EXPORTER_OTLP_ENDPOINT` is set in the application environment (Dokploy env vars)
+2. Verify `OTEL_EXPORTER_OTLP_HEADERS` contains valid auth (check Grafana Cloud access policy)
+3. Check application logs for `Failed to initialize OTel trace exporter` warnings
+4. Test connectivity from VPS to Grafana Cloud OTLP endpoint
 
-```bash
-export GRAFANA_TEMPO_QUERY_URL="https://tempo-prod-10-prod-eu-west-2.grafana.net/tempo"
-export GRAFANA_TEMPO_USER="1489367"
-export GRAFANA_TEMPO_READ_TOKEN="<glc-traces-read-token>"
-scripts/verify-grafana-traces.sh
-```
+### Common issues
 
-Use separate tokens by purpose:
-
-- ingest path (`OTEL_EXPORTER_OTLP_HEADERS`) → token with `traces:write` (Username: 1489367)
-- query path (`scripts/verify-grafana-traces.sh`) → token with `traces:read` (Username: 1489367)
-
-For **Cloud Access Policies** (`glc_*` tokens), prefer Bearer authentication:
-`Authorization: Bearer <token>`
-
-- query path (`scripts/verify-grafana-traces.sh`) → token with `traces:read` (Username: 1489367)
-
-```bash
-export GRAFANA_TEMPO_QUERY_URL="https://<stack>.grafana.net/tempo"
-export GRAFANA_TEMPO_USER="<stack-instance-id>"
-export GRAFANA_TEMPO_READ_TOKEN="<glc-traces-read-token>"
-scripts/verify-grafana-traces.sh
-```
-
-Use separate tokens by purpose:
-
-- ingest path (`OTEL_EXPORTER_OTLP_HEADERS`) → token with `traces:write`
-- query path (`scripts/verify-grafana-traces.sh`) → token with `traces:read`
-
-### Alerts not firing
-
-1. Open Grafana > **Alerting > Alert rules** — check rule status
-2. Verify Prometheus queries return data in **Explore > Prometheus**
-3. Check Grafana logs: `docker logs observability-grafana-1`
+| Symptom                        | Likely cause                                             |
+| ------------------------------ | -------------------------------------------------------- |
+| Alloy scrape targets empty     | Missing `monitoring=true` label on app container         |
+| Promtail no targets            | Docker socket not mounted or permissions issue           |
+| Traces missing                 | `OTEL_EXPORTER_OTLP_ENDPOINT` not set or auth invalid    |
+| Metrics port mismatch          | Alloy hardcodes port 3001, app must expose metrics there |
+| Swarm service name with suffix | Relabel rules strip known patterns, check regex          |
 
 ## Security
 
-- `/metrics` endpoint should be blocked from external access via Traefik middleware
-- Grafana is protected by admin login (`GF_AUTH_ANONYMOUS_ENABLED=false`)
-- Loki, Prometheus, Tempo — no exposed ports, internal network only
-- Promtail has read-only access to Docker socket (for container discovery)
+- `/metrics` endpoint is blocked from external access via Traefik middleware
+- Promtail has read-only access to Docker socket (container discovery)
+- Alloy has read-only Docker socket access (service discovery) + network access to app containers
+- All Grafana Cloud communication uses HTTPS with authentication (basic auth or Bearer token)
+- `GRAFANA_API_TOKEN` is stored as an environment variable on the VPS, never committed
 
 ## See Also
 
-- [Architecture](architecture.md) — C4 diagrams including observability layer
-- [Deployment Guide](deployment.md) — Ansible playbook for deploying the stack
-- [API Reference](api.md) — GET /metrics endpoint documentation
+- [Architecture](architecture.md) -- C4 diagrams including observability layer
+- [Deployment Guide](deployment.md) -- CI/CD pipeline and environment configuration
+- [API Reference](api.md) -- GET /metrics endpoint documentation

@@ -76,11 +76,12 @@
         port: '443'
         proto: tcp
 
-    - name: Allow Dokploy port through firewall
+    - name: Allow Dokploy management (3000/tcp)
       community.general.ufw:
         rule: allow
         port: '{{ dokploy_port }}'
         proto: tcp
+        comment: 'Dokploy UI — consider restricting to admin IPs via src parameter'
 
     - name: Enable firewall
       community.general.ufw:
@@ -92,13 +93,27 @@
         path: /etc/dokploy
       register: dokploy_dir
 
+    - name: Download Dokploy installer
+      ansible.builtin.get_url:
+        url: https://dokploy.com/install.sh
+        dest: /tmp/dokploy-install.sh
+        mode: '0755'
+      when: not dokploy_dir.stat.exists
+
     - name: Install Dokploy (Docker + Swarm + Traefik)
+      # NOTE: Dokploy does not publish checksums for the install script.
+      # Using get_url + shell instead of curl|sh to allow manual inspection.
       ansible.builtin.shell:
-        cmd: curl -sSL https://dokploy.com/install.sh | sh
+        cmd: bash /tmp/dokploy-install.sh
         executable: /bin/bash
       when: not dokploy_dir.stat.exists
       changed_when: true
       timeout: 300
+
+    - name: Remove Dokploy installer
+      ansible.builtin.file:
+        path: /tmp/dokploy-install.sh
+        state: absent
 
     - name: Wait for Dokploy to be ready
       ansible.builtin.uri:

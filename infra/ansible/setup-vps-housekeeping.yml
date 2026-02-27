@@ -33,7 +33,8 @@
             docker image prune -af
             docker builder prune -af
             docker container prune -f
-            docker volume prune -f
+            # NOTE: docker volume prune -f removed — unsafe on Swarm (can delete named volumes
+            # used by services that are temporarily stopped or restarting)
             df -h /
             docker system df
             echo "[$ts] cleanup finished"
