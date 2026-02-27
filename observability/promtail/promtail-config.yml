@@ -1,0 +1,107 @@
+# Promtail configuration — auto-discovers ALL Docker containers.
+# Parses Pino JSON logs and extracts structured fields for Loki queries.
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: https://logs-prod-012.grafana.net/loki/api/v1/push
+    basic_auth:
+      username: '1495062'
+      password: ${GRAFANA_API_TOKEN}
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+
+    relabel_configs:
+      # Use container name as the primary label
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+
+      # Extract service name from Compose service label
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        regex: '(.+)'
+        target_label: service
+
+      # Extract service name from Swarm service label (overrides Compose if both set)
+      - source_labels: ['__meta_docker_container_label_com_docker_swarm_service_name']
+        regex: '(.+)'
+        target_label: service
+
+      # Fallback: extract service from container name for Swarm tasks
+      # Pattern: <service>.1.<task_id> → <service>
+      - source_labels: ['container']
+        regex: '([^.]+)\.\d+\..+'
+        target_label: __tmp_swarm_service
+
+      # Only apply fallback if service is not already set
+      - source_labels: ['__tmp_swarm_service']
+        regex: '(.+)'
+        target_label: service
+
+      # Clean Dokploy random suffix: myapp-hello-prod-qps6m7 → myapp-hello-prod
+      - source_labels: ['service']
+        regex: '(myapp-hello-(?:prod|staging|dev))-[a-z0-9]{6,}'
+        target_label: service
+        replacement: '$1'
+
+      # Extract compose project (stack) name
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: stack
+
+      # Extract image name (without tag)
+      - source_labels: ['__meta_docker_container_image']
+        regex: '(.+?)(?::.*)?'
+        target_label: image
+
+      # Extract environment from NODE_ENV label (if set)
+      - source_labels: ['__meta_docker_container_env_NODE_ENV']
+        target_label: environment
+
+    pipeline_stages:
+      # ── Try JSON parsing (Pino / structured loggers) ──────────────────────
+      - match:
+          selector: '{service=~".+"}'
+          stages:
+            - json:
+                expressions:
+                  level: level
+                  msg: msg
+                  req_id: req.id
+                  req_method: req.method
+                  req_url: req.url
+                  res_status: res.statusCode
+                  response_time: responseTime
+                  timestamp: time
+            # Map Pino numeric levels to human-readable names
+            - template:
+                source: level
+                template: >-
+                  {{- if eq .Value "10" -}}trace
+                  {{- else if eq .Value "20" -}}debug
+                  {{- else if eq .Value "30" -}}info
+                  {{- else if eq .Value "40" -}}warn
+                  {{- else if eq .Value "50" -}}error
+                  {{- else if eq .Value "60" -}}fatal
+                  {{- else -}}{{ .Value }}
+                  {{- end -}}
+            - labels:
+                level:
+                req_method:
+                res_status:
+
+      # ── Drop health check noise (every 30s from Docker HEALTHCHECK) ──────
+      - match:
+          selector: '{service=~".+"} |~ "/health"'
+          stages:
+            - drop:
+                expression: '.*"url":"/health".*'
+                drop_counter_reason: health_check_noise

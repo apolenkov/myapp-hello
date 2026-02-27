@@ -1,0 +1,152 @@
+---
+# Ansible playbook: provision a fresh VPS with Dokploy
+#
+# Run ONCE on a bare Ubuntu 22.04/24.04 VPS before any other playbooks.
+# Installs Docker, Docker Swarm, Dokploy, and configures the firewall.
+#
+# Prerequisites:
+#   - Fresh Ubuntu 22.04/24.04 VPS with root SSH access
+#   - vps_host and vps_ssh_key set in secrets.yml
+#   - DNS pointing to VPS IP (apolenkov.duckdns.org)
+#
+# Usage:
+#   ansible-playbook infra/ansible/provision-vps.yml \
+#     -e @infra/ansible/vars/secrets.yml --ask-vault-pass \
+#     -i "185.239.48.55,"
+#
+# After running this playbook, complete setup manually in Dokploy UI:
+#   1. Open http://<vps-ip>:3000 — create admin account
+#   2. Settings → API Token — generate and save to secrets.yml (dokploy_token)
+#   3. Create project: "myapp-hello"
+#   4. Create 3 applications: api-prod, api-staging, api-dev
+#      - Source: Docker image, Image: ghcr.io/apolenkov/myapp-api:latest
+#   5. Create 3 PostgreSQL services: postgres-prod, postgres-staging, postgres-dev
+#   6. Configure Traefik domains (Dokploy UI → app → Domains):
+#      - api-prod   → apolenkov.duckdns.org
+#      - api-staging → staging.apolenkov.duckdns.org
+#      - api-dev    → dev.apolenkov.duckdns.org
+#   7. Note all app IDs and postgres IDs → update secrets.yml
+#   8. Run: ansible-playbook infra/ansible/setup-environments.yml ...
+#   9. Run: ansible-playbook infra/ansible/setup-db-backups.yml ...
+#  10. Set GitHub Secrets (see CLAUDE.md § Secrets), push code
+
+- name: Provision fresh VPS with Dokploy
+  hosts: all
+  remote_user: root
+  gather_facts: true
+
+  vars:
+    dokploy_port: 3000
+
+  tasks:
+    # ── System update ────────────────────────────────────────────────
+    - name: Update apt cache and upgrade packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        autoremove: true
+        cache_valid_time: 3600
+
+    - name: Install essential packages
+      ansible.builtin.apt:
+        name:
+          - curl
+          - jq
+          - git
+          - ufw
+          - fail2ban
+          - unattended-upgrades
+        state: present
+
+    # ── Firewall ─────────────────────────────────────────────────────
+    - name: Allow SSH through firewall
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Allow HTTP through firewall
+      community.general.ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+    - name: Allow HTTPS through firewall
+      community.general.ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+
+    - name: Allow Dokploy port through firewall
+      community.general.ufw:
+        rule: allow
+        port: '{{ dokploy_port }}'
+        proto: tcp
+
+    - name: Enable firewall
+      community.general.ufw:
+        state: enabled
+
+    # ── Dokploy ──────────────────────────────────────────────────────
+    - name: Check if Dokploy is already installed
+      ansible.builtin.stat:
+        path: /etc/dokploy
+      register: dokploy_dir
+
+    - name: Install Dokploy (Docker + Swarm + Traefik)
+      ansible.builtin.shell:
+        cmd: curl -sSL https://dokploy.com/install.sh | sh
+        executable: /bin/bash
+      when: not dokploy_dir.stat.exists
+      changed_when: true
+      timeout: 300
+
+    - name: Wait for Dokploy to be ready
+      ansible.builtin.uri:
+        url: 'http://{{ vps_host }}:{{ dokploy_port }}'
+        method: GET
+        status_code: [200, 302, 401, 404]
+      register: dokploy_ready
+      retries: 18
+      delay: 10
+      until: dokploy_ready is not failed
+      when: not dokploy_dir.stat.exists
+
+    # ── fail2ban ─────────────────────────────────────────────────────
+    - name: Enable fail2ban service
+      ansible.builtin.service:
+        name: fail2ban
+        state: started
+        enabled: true
+
+    # ── unattended-upgrades ──────────────────────────────────────────
+    - name: Enable unattended security upgrades
+      ansible.builtin.command:
+        cmd: dpkg-reconfigure -pmedium unattended-upgrades
+      changed_when: true
+
+    # ── Summary ──────────────────────────────────────────────────────
+    - name: Show next steps
+      ansible.builtin.debug:
+        msg: |
+          ✅ VPS provisioned successfully!
+
+          Dokploy is running at: http://{{ vps_host }}:{{ dokploy_port }}
+
+          Manual steps required in Dokploy UI:
+            1. Create admin account at http://{{ vps_host }}:{{ dokploy_port }}
+            2. Settings → API Token → generate → save to secrets.yml (dokploy_token)
+            3. Create project: myapp-hello
+            4. Create apps: api-prod, api-staging, api-dev
+               Image: ghcr.io/apolenkov/myapp-api:latest
+            5. Create PostgreSQL: postgres-prod, postgres-staging, postgres-dev
+            6. Configure domains via Traefik (Dokploy UI → Domains tab):
+               - api-prod → apolenkov.duckdns.org
+               - api-staging → staging.apolenkov.duckdns.org
+               - api-dev → dev.apolenkov.duckdns.org
+            7. Update secrets.yml with all IDs, then run:
+               ansible-playbook infra/ansible/setup-environments.yml \
+                 -e @infra/ansible/vars/secrets.yml --ask-vault-pass
+               ansible-playbook infra/ansible/setup-db-backups.yml \
+                 -e @infra/ansible/vars/secrets.yml --ask-vault-pass
+            8. Set GitHub Secrets (see CLAUDE.md § Secrets)
+            9. Push to main — CI/CD will deploy automatically

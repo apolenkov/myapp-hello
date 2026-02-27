@@ -1,0 +1,55 @@
+# Observability stack: Promtail + Alloy
+# Deployed as lightweight agents pushing to Grafana Cloud.
+
+services:
+  # ── Log collector (auto-discovers Docker containers) ────────────────────────
+  promtail:
+    image: grafana/promtail:3.4.2
+    command: -config.file=/etc/promtail/promtail-config.yml -config.expand-env=true
+    environment:
+      GRAFANA_API_TOKEN: ${GRAFANA_API_TOKEN:?Set GRAFANA_API_TOKEN}
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail_positions:/tmp
+    networks:
+      - observability
+    ports:
+      - '9080:9080'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 128M
+    restart: unless-stopped
+
+  # ── Metrics collection (Grafana Alloy) ─────────────────────────────────────
+  alloy:
+    image: grafana/alloy:v1.8.0
+    command: run --stability.level=experimental /etc/alloy/config.alloy
+    environment:
+      GRAFANA_API_TOKEN: ${GRAFANA_API_TOKEN:?Set GRAFANA_API_TOKEN}
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - observability
+      - dokploy-network
+    ports:
+      - '12345:12345'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+    restart: unless-stopped
+
+volumes:
+  promtail_positions:
+
+networks:
+  observability:
+    driver: bridge
+  dokploy-network:
+    external: true

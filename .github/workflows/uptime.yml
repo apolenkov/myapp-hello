@@ -1,0 +1,68 @@
+---
+name: Uptime Monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # Every 15 minutes
+  workflow_dispatch:
+
+jobs:
+  check-prod:
+    name: Health check prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check prod
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL }}/health"
+          for attempt in 1 2 3; do
+            HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' \
+              "$URL" --max-time 10 --retry 2 --retry-delay 5 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "prod OK (HTTP $HTTP_CODE, attempt $attempt)"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $HTTP_CODE, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::prod health check failed after 3 attempts (HTTP $HTTP_CODE)"
+          exit 1
+
+  check-staging:
+    name: Health check staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check staging
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL_STAGING }}/health"
+          for attempt in 1 2 3; do
+            HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' \
+              "$URL" --max-time 10 --retry 2 --retry-delay 5 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "staging OK (HTTP $HTTP_CODE, attempt $attempt)"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $HTTP_CODE, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::staging health check failed after 3 attempts (HTTP $HTTP_CODE)"
+          exit 1
+
+  check-dev:
+    name: Health check dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check dev
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL_DEV }}/health"
+          for attempt in 1 2 3; do
+            HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' \
+              "$URL" --max-time 10 --retry 2 --retry-delay 5 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "dev OK (HTTP $HTTP_CODE, attempt $attempt)"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $HTTP_CODE, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::dev health check failed after 3 attempts (HTTP $HTTP_CODE)"
+          exit 1

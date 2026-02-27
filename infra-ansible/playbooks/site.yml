@@ -1,0 +1,7 @@
+- import_playbook: 01-base.yml
+- import_playbook: 02-docker.yml
+- import_playbook: 03-dokploy.yml
+- import_playbook: 04-rclone.yml
+- import_playbook: 05-restore.yml
+- import_playbook: 06-smoke.yml
+- import_playbook: 07-observability.yml

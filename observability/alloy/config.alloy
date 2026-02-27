@@ -1,0 +1,83 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+discovery.docker "myapp" {
+  host    = "unix:///var/run/docker.sock"
+  filter {
+    name   = "label"
+    values = ["monitoring=true"]
+  }
+}
+
+discovery.relabel "myapp" {
+  targets = discovery.docker.myapp.targets
+
+  // Drop containers without the monitoring label (safety net)
+  rule {
+    source_labels = ["__meta_docker_container_label_monitoring"]
+    regex         = "true"
+    action        = "keep"
+  }
+
+  // Replace target port with the app's metrics port
+  rule {
+    source_labels = ["__address__"]
+    regex         = "(.+):\\d+"
+    target_label  = "__address__"
+    replacement   = "$1:3001"
+  }
+
+  // Extract container name
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Extract service name from Swarm or Compose labels
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_swarm_service_name"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+    action        = "replace"
+    regex         = "(.+)"
+  }
+
+  // Strip Swarm random suffix for consistent labeling
+  rule {
+    source_labels = ["service"]
+    regex         = "(myapp-hello-(?:prod|staging|dev))-[a-z0-9]{6,}"
+    target_label  = "service"
+    replacement   = "$1"
+  }
+
+  // Extract environment from container label (falls back to "unknown")
+  rule {
+    source_labels = ["__meta_docker_container_label_environment"]
+    target_label  = "environment"
+  }
+}
+
+prometheus.scrape "myapp" {
+  targets         = discovery.relabel.myapp.output
+  forward_to      = [prometheus.remote_write.metrics.receiver]
+  scrape_interval = "15s"
+  metrics_path    = "/metrics"
+}
+
+prometheus.remote_write "metrics" {
+  endpoint {
+    url = "https://prometheus-prod-65-prod-eu-west-2.grafana.net/api/prom/push"
+
+    basic_auth {
+      username = "2998774"
+      password = env("GRAFANA_API_TOKEN")
+    }
+  }
+}

@@ -1,0 +1,17 @@
+- name: Smoke test after restore
+  hosts: vps
+  tasks:
+    - name: Wait for apps to start
+      wait_for:
+        port: '{{ item }}'
+        host: localhost
+        timeout: 60
+      loop: [3011, 3012, 3013]
+
+    - name: Check /health endpoints
+      uri:
+        url: 'http://localhost:{{ item }}/health'
+        status_code: 200
+      loop: [3011, 3012, 3013]
+      retries: 3
+      delay: 5

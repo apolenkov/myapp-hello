@@ -1,0 +1,132 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Quality Gates ──────────────────────────────────────────────────────
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: TypeScript strict check
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+
+      - name: Prettier check
+        run: npm run format:check
+
+      - name: YAML lint
+        run: pip install yamllint && yamllint .github/
+
+      - name: ESLint
+        run: npx turbo run lint
+
+      - name: Build
+        run: npx turbo run build
+
+      - name: Architecture check
+        run: npx turbo run check:arch
+
+  # ── Test ──────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test with coverage
+        run: npx turbo run test:coverage
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+
+  # ── Sentry Release ─────────────────────────────────────────────────────
+  sentry:
+    name: Sentry Release
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build API
+        run: npx turbo run build --filter=@myapp/api
+
+      - name: Upload source maps to Sentry
+        run: |
+          npx @sentry/cli@latest releases new "$GITHUB_SHA"
+          npx @sentry/cli@latest sourcemaps inject apps/api/dist
+          npx @sentry/cli@latest sourcemaps upload --release="$GITHUB_SHA" apps/api/dist
+          npx @sentry/cli@latest releases finalize "$GITHUB_SHA"
+          npx @sentry/cli@latest releases deploys "$GITHUB_SHA" new -e production
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: apolenkov
+          SENTRY_PROJECT: myapp-hello
+
+  # ── Release ────────────────────────────────────────────────────────────
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Semantic Release
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUSKY: '0'

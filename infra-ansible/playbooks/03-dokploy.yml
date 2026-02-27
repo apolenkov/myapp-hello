@@ -1,0 +1,17 @@
+- name: Install Dokploy
+  hosts: vps
+  tasks:
+    - name: Check if Dokploy already installed
+      stat:
+        path: /etc/dokploy
+      register: dokploy_installed
+
+    - name: Install Dokploy (first-time only)
+      shell: curl -fsSL https://dokploy.com/install.sh | sh
+      when: not dokploy_installed.stat.exists
+
+    - name: Wait for Dokploy to start
+      wait_for:
+        port: 3000
+        host: localhost
+        timeout: 120

@@ -1,0 +1,43 @@
+- name: Base server setup
+  hosts: vps
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      apt:
+        name: [ufw, fail2ban, unattended-upgrades]
+        state: present
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: '80'
+
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: '443'
+
+    - name: Allow Dokploy admin
+      ufw:
+        rule: allow
+        port: '3000'
+
+    - name: Start fail2ban
+      service:
+        name: fail2ban
+        state: started
+        enabled: true

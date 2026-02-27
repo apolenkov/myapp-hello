@@ -1,0 +1,169 @@
+---
+# Ansible playbook: deploy observability stack (Promtail + Grafana Alloy)
+#
+# Deploys lightweight agents to VPS that push logs and metrics to Grafana Cloud.
+# Promtail → Loki (logs), Alloy → Prometheus (metrics).
+# Traces are sent directly from the app via OTel SDK → Tempo.
+#
+# Prerequisites:
+#   - VPS provisioned with Docker (provision-vps.yml)
+#   - Grafana Cloud account with access policy token
+#   - grafana_api_token set in secrets.yml
+#
+# Usage:
+#   ansible-playbook infra/ansible/setup-observability.yml \
+#     -e @infra/ansible/vars/secrets.yml \
+#     -i "185.239.48.55,"
+#
+# With Ansible Vault:
+#   ansible-playbook infra/ansible/setup-observability.yml \
+#     -e @infra/ansible/vars/secrets.yml --ask-vault-pass \
+#     -i "185.239.48.55,"
+#
+# Verify after deployment:
+#   curl -u "<loki_user>:<grafana_api_token>" \
+#     "https://logs-prod-012.grafana.net/loki/api/v1/label/service/values"
+
+- name: Deploy observability stack to VPS
+  hosts: all
+  remote_user: root
+  gather_facts: false
+
+  vars:
+    obs_dir: /root/observability
+    grafana_api_token: '{{ grafana_api_token }}'
+
+  tasks:
+    # ── Validate required variables ──────────────────────────────────
+    - name: Validate required secrets
+      ansible.builtin.assert:
+        that:
+          - grafana_api_token is defined
+          - grafana_api_token | length > 0
+        fail_msg: >-
+          grafana_api_token is required. Get it from Grafana Cloud →
+          Security → Access Policies → Create token with scopes:
+          metrics:write, logs:write, traces:write
+
+    # ── Create directory structure ───────────────────────────────────
+    - name: Create observability directories
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        mode: '0755'
+      loop:
+        - '{{ obs_dir }}'
+        - '{{ obs_dir }}/promtail'
+        - '{{ obs_dir }}/alloy'
+
+    # ── Copy configuration files ─────────────────────────────────────
+    - name: Copy docker-compose file
+      ansible.builtin.copy:
+        src: '{{ playbook_dir }}/../../observability/docker-compose.observability.yml'
+        dest: '{{ obs_dir }}/docker-compose.observability.yml'
+        mode: '0644'
+      register: compose_changed
+
+    - name: Copy Promtail config
+      ansible.builtin.copy:
+        src: '{{ playbook_dir }}/../../observability/promtail/promtail-config.yml'
+        dest: '{{ obs_dir }}/promtail/promtail-config.yml'
+        mode: '0644'
+      register: promtail_changed
+
+    - name: Copy Alloy config
+      ansible.builtin.copy:
+        src: '{{ playbook_dir }}/../../observability/alloy/config.alloy'
+        dest: '{{ obs_dir }}/alloy/config.alloy'
+        mode: '0644'
+      register: alloy_changed
+
+    # ── Create .env file with secrets ────────────────────────────────
+    - name: Create .env file for docker-compose
+      ansible.builtin.copy:
+        dest: '{{ obs_dir }}/.env'
+        content: |
+          GRAFANA_API_TOKEN={{ grafana_api_token }}
+        mode: '0600'
+      register: env_changed
+
+    # ── Ensure dokploy-network exists ────────────────────────────────
+    - name: Check if dokploy-network exists
+      ansible.builtin.command:
+        cmd: docker network inspect dokploy-network
+      register: network_check
+      failed_when: false
+      changed_when: false
+
+    - name: Show warning if dokploy-network missing
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: dokploy-network does not exist. Alloy metrics scraping
+          of app containers will not work until Dokploy is installed.
+      when: network_check.rc != 0
+
+    # ── Deploy stack ─────────────────────────────────────────────────
+    - name: Pull latest images
+      ansible.builtin.command:
+        cmd: docker compose -f docker-compose.observability.yml pull
+        chdir: '{{ obs_dir }}'
+      changed_when: true
+      when: compose_changed.changed or promtail_changed.changed or alloy_changed.changed or env_changed.changed
+
+    - name: Deploy observability stack
+      ansible.builtin.command:
+        cmd: docker compose -f docker-compose.observability.yml up -d --remove-orphans
+        chdir: '{{ obs_dir }}'
+      changed_when: true
+
+    # ── Wait for containers ──────────────────────────────────────────
+    - name: Wait for containers to be healthy
+      ansible.builtin.pause:
+        seconds: 10
+        prompt: 'Waiting for containers to start...'
+
+    - name: Check container status
+      ansible.builtin.command:
+        cmd: >-
+          docker ps --filter "name=observability"
+          --format "{{ '{{' }}.Names{{ '}}' }} {{ '{{' }}.Status{{ '}}' }}"
+      register: container_status
+      changed_when: false
+
+    - name: Show container status
+      ansible.builtin.debug:
+        msg: '{{ container_status.stdout_lines }}'
+
+    # ── Verify logs are flowing ──────────────────────────────────────
+    - name: Check Promtail is discovering targets
+      ansible.builtin.command:
+        cmd: docker logs observability-promtail-1 --tail 5
+      register: promtail_logs
+      changed_when: false
+      failed_when: "'error' in promtail_logs.stderr | lower and '401' in promtail_logs.stderr"
+
+    - name: Check Alloy is running without errors
+      ansible.builtin.command:
+        cmd: docker logs observability-alloy-1 --tail 5
+      register: alloy_logs
+      changed_when: false
+      failed_when: "'could not perform the initial load' in alloy_logs.stderr"
+
+    # ── Summary ──────────────────────────────────────────────────────
+    - name: Show deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Observability stack deployed:
+            Promtail → Grafana Cloud Loki (logs)
+            Alloy    → Grafana Cloud Prometheus (metrics)
+            OTel SDK → Grafana Cloud Tempo (traces, from app)
+
+          Containers: {{ container_status.stdout_lines | join(', ') }}
+
+          Verify in Grafana Cloud:
+            Logs:    Explore → Loki → {service=~".+"}
+            Metrics: Explore → Prometheus → up
+            Traces:  Explore → Tempo → search by service
+
+          Config location: {{ obs_dir }}/
+          Secrets: {{ obs_dir }}/.env (mode 0600)

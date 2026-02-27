@@ -1,0 +1,55 @@
+{
+  "name": "myapp-hello",
+  "private": true,
+  "description": "Monorepo for myapp services",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=11.0.0"
+  },
+  "packageManager": "npm@11.10.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "lint": "turbo run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify:traces": "./scripts/verify-grafana-traces.sh",
+    "dev": "turbo run dev",
+    "dev:docker": "docker compose -f infra/docker-compose.yml up --build",
+    "dev:db": "docker compose -f infra/docker-compose.yml up postgres",
+    "prepare": "husky"
+  },
+  "overrides": {
+    "minimatch": "10.2.2"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^12.0.6",
+    "@swc/cli": "^0.8.0",
+    "@swc/core": "^1.15.13",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "markdownlint-cli2": "0.21.0",
+    "prettier": "^3.8.1",
+    "semantic-release": "^25.0.3",
+    "turbo": "^2"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write"
+    ],
+    "*.{json,yml,yaml}": [
+      "prettier --write"
+    ],
+    "*.md": [
+      "markdownlint-cli2 --fix"
+    ]
+  }
+}
