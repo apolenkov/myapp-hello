@@ -13,6 +13,7 @@ import { SentrySpanProcessor } from '@sentry/opentelemetry'
 import { NodeSDK } from '@opentelemetry/sdk-node'
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
+import { BatchSpanProcessor, type SpanProcessor } from '@opentelemetry/sdk-trace-base'
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http'
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express'
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg'
@@ -54,11 +55,15 @@ const createTraceExporter = (): OTLPTraceExporter | undefined => {
 
 const traceExporter = createTraceExporter()
 
+const spanProcessors: SpanProcessor[] = [new SentrySpanProcessor()]
+if (traceExporter) {
+  spanProcessors.push(new BatchSpanProcessor(traceExporter))
+}
+
 const sdk = new NodeSDK({
   resource,
   metricReader: prometheusExporter,
-  traceExporter,
-  spanProcessors: [new SentrySpanProcessor()],
+  spanProcessors,
   instrumentations: [
     new HttpInstrumentation({
       ignoreIncomingRequestHook: (req: IncomingMessage): boolean =>

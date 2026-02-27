@@ -3,23 +3,17 @@ logging {
   format = "logfmt"
 }
 
+
 discovery.docker "myapp" {
   host    = "unix:///var/run/docker.sock"
   filter {
-    name   = "label"
-    values = ["monitoring=true"]
+    name   = "name"
+    values = ["myapp"]
   }
 }
 
 discovery.relabel "myapp" {
   targets = discovery.docker.myapp.targets
-
-  // Drop containers without the monitoring label (safety net)
-  rule {
-    source_labels = ["__meta_docker_container_label_monitoring"]
-    regex         = "true"
-    action        = "keep"
-  }
 
   // Replace target port with the app's metrics port
   rule {
@@ -36,31 +30,18 @@ discovery.relabel "myapp" {
     target_label  = "container"
   }
 
-  // Extract service name from Swarm or Compose labels
+  // Extract service name from Swarm label
   rule {
     source_labels = ["__meta_docker_container_label_com_docker_swarm_service_name"]
     target_label  = "service"
   }
 
-  rule {
-    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
-    target_label  = "service"
-    action        = "replace"
-    regex         = "(.+)"
-  }
-
-  // Strip Swarm random suffix for consistent labeling
+  // Clean Dokploy random suffix: myapp-hello-prod-qps6m7 → myapp-hello-prod
   rule {
     source_labels = ["service"]
     regex         = "(myapp-hello-(?:prod|staging|dev))-[a-z0-9]{6,}"
     target_label  = "service"
     replacement   = "$1"
-  }
-
-  // Extract environment from container label (falls back to "unknown")
-  rule {
-    source_labels = ["__meta_docker_container_label_environment"]
-    target_label  = "environment"
   }
 }
 
