@@ -19,8 +19,8 @@ import { MetricsModule } from './metrics/metrics.module'
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         pinoHttp: {
-          genReqId: () => randomUUID(),
-          customLogLevel: (_req: unknown, res: { statusCode: number }) => {
+          genReqId: (): string => randomUUID(),
+          customLogLevel: (_req: unknown, res: { statusCode: number }): string => {
             if (res.statusCode >= 500) return 'error'
             if (res.statusCode >= 400) return 'warn'
             return 'info'

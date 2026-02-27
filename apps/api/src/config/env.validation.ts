@@ -7,10 +7,12 @@ function validateFormats(config: Record<string, unknown>): string[] {
   }
 
   const databaseUrl = config['DATABASE_URL']
-  if (databaseUrl && typeof databaseUrl === 'string') {
-    if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
-      errors.push('DATABASE_URL must start with postgres:// or postgresql://')
-    }
+  if (
+    typeof databaseUrl === 'string' &&
+    !databaseUrl.startsWith('postgres://') &&
+    !databaseUrl.startsWith('postgresql://')
+  ) {
+    errors.push('DATABASE_URL must start with postgres:// or postgresql://')
   }
 
   const port = config['PORT']
