@@ -142,13 +142,61 @@ git push origin main
 Never force-push to `main`. The revert commit triggers a new pipeline run that deploys the reverted
 state.
 
-### Database Rollback
+### Database Migrations
 
-Database migrations are applied forward-only. If a migration needs to be undone:
+Migrations run automatically on every application startup before the HTTP server
+begins accepting traffic. The runner is in `apps/api/src/db/migrate.ts`.
 
-1. Write a new migration file in `apps/api/migrations/` that reverses the change (e.g.,
-   `002_revert_initial.sql`)
+#### Advisory Lock
+
+The migration runner acquires a transaction-scoped PostgreSQL advisory lock
+(`pg_advisory_xact_lock(7777777)`) inside a `BEGIN` block. Because the lock is
+transaction-scoped, it is released automatically on `COMMIT` or `ROLLBACK` —
+there is no risk of lock leaks even if the process crashes.
+
+#### Swarm Multi-Replica Behavior
+
+In Docker Swarm, multiple replicas may start simultaneously. Only one instance
+acquires the advisory lock and runs migrations. Other replicas block on the lock
+until it is released, then skip already-applied migrations (checked against the
+`migrations` table). This makes the startup sequence safe for any replica count.
+
+#### Forward-Only Policy
+
+Migrations are forward-only — there are no rollback SQL files. Each migration
+uses idempotent patterns (`CREATE TABLE IF NOT EXISTS`, `DO $$ ... END $$`
+blocks) so re-running a migration that was already recorded is safe (it is
+simply skipped).
+
+#### Migration File Convention
+
+SQL files live in `apps/api/migrations/` and are sorted alphabetically by
+numeric prefix:
+
+```text
+apps/api/migrations/
+  001_initial.sql
+  002_add_constraints.sql
+  003_add_users.sql
+```
+
+#### Error Handling
+
+If any migration fails, the entire transaction is rolled back and the
+application throws, which causes the process to exit with code 1. No partial
+migrations are applied — either all pending migrations succeed or none do.
+
+#### Database Rollback
+
+Since migrations are forward-only, reversing a change requires a new migration:
+
+1. Write a new migration file in `apps/api/migrations/` that reverses the
+   change (e.g., `004_revert_add_users.sql`)
 2. Push to `main` — it will be applied automatically on next deployment
+
+Cross-reference: [`apps/api/src/db/migrate.ts`](../apps/api/src/db/migrate.ts)
+for implementation, [Development Guide](development.md) for the migration
+sequence diagram.
 
 ## SSL Certificate Renewal
 

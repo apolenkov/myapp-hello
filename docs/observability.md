@@ -73,7 +73,8 @@ flowchart TD
 
 **How it works:**
 
-1. Docker service discovery (`discovery.docker`) filters containers with `monitoring=true` label
+1. Docker service discovery (`discovery.docker`) filters containers whose name contains
+   "myapp" (via `filter { name = "name"; values = ["myapp"] }`)
 2. Relabeling extracts container name, service name (Swarm/Compose), environment
 3. Strips Swarm random suffixes for consistent labeling
 4. Rewrites target port to `:3001` (app metrics port)
@@ -138,6 +139,37 @@ disabled and only metrics are exported.
 
 **Config:** Initialized in `instrumentation.ts` before OTel SDK starts.
 
+### Recommended Alert Setup
+
+Sentry free plan supports **issue alerts** only (not metric alerts).
+Metric alerts (error rate thresholds, latency percentiles) require a paid plan.
+
+Recommended alerts to configure:
+
+| Alert             | Condition                  | Purpose                         |
+| ----------------- | -------------------------- | ------------------------------- |
+| New Error in Prod | `FirstSeenEventCondition`  | First occurrence of a new error |
+| Regression        | `RegressionEventCondition` | Resolved error reappears        |
+
+Configure via Sentry UI (**Settings > Alerts**) or the API. Example -- create a
+"New Error in Production" alert via API:
+
+<!-- prettier-ignore -->
+```bash
+curl -X POST "https://sentry.io/api/0/projects/{org}/{project}/rules/" \
+  -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "New Error in Production",
+    "conditions": [{"id": "sentry.rules.conditions.first_seen_event.FirstSeenEventCondition"}],
+    "filters": [{"id": "sentry.rules.filters.tagged_event.TaggedEventFilter",
+                 "key": "environment", "match": "eq", "value": "production"}],
+    "actions": [{"id": "sentry.mail.actions.NotifyEmailAction",
+                 "targetType": "IssueOwners"}],
+    "actionMatch": "all", "filterMatch": "all", "frequency": 60
+  }'
+```
+
 ## Local Development
 
 Locally, the observability stack is **not running** (no Promtail/Alloy in `infra/docker-compose.yml`).
@@ -180,7 +212,8 @@ GRAFANA_API_TOKEN=<token> docker compose -f docker-compose.observability.yml up 
 To instrument a new service for metrics collection:
 
 1. **Expose `/metrics`** on port 3001 (or configure Alloy to use a different port)
-2. **Add the `monitoring=true` Docker label** to the service — Alloy auto-discovers it
+2. **Name your container with "myapp" in the name** — Alloy auto-discovers containers
+   matching this pattern (no Docker labels required)
 3. **Logs are automatic** — Promtail discovers all Docker containers, no config change needed
 4. **Traces (optional)** — set `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`
    environment variables
@@ -203,7 +236,7 @@ rules are made directly in the Grafana Cloud web interface.
 ### Metrics not appearing in Grafana Cloud
 
 1. Check Alloy is running: `docker ps | grep alloy`
-2. Verify the app has `monitoring=true` label: `docker inspect <container> | jq '.[0].Config.Labels'`
+2. Verify the container name contains "myapp": `docker ps --format '{{.Names}}' | grep myapp`
 3. Verify `/metrics` responds: `curl http://localhost:3001/metrics`
 4. Check Alloy logs: `docker logs observability-alloy-1`
 5. Check Alloy UI targets: `http://<vps>:12345` (Alloy built-in UI)
@@ -226,7 +259,7 @@ rules are made directly in the Grafana Cloud web interface.
 
 | Symptom                        | Likely cause                                             |
 | ------------------------------ | -------------------------------------------------------- |
-| Alloy scrape targets empty     | Missing `monitoring=true` label on app container         |
+| Alloy scrape targets empty     | Container name doesn't contain "myapp" (check naming)    |
 | Promtail no targets            | Docker socket not mounted or permissions issue           |
 | Traces missing                 | `OTEL_EXPORTER_OTLP_ENDPOINT` not set or auth invalid    |
 | Metrics port mismatch          | Alloy hardcodes port 3001, app must expose metrics there |

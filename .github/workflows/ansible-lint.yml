@@ -1,0 +1,28 @@
+---
+name: Ansible Lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/ansible/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/ansible/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install ansible-lint
+        run: pip install ansible-lint
+
+      - name: Run ansible-lint
+        working-directory: infra/ansible
+        run: ansible-lint

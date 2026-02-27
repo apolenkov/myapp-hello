@@ -72,6 +72,74 @@ Module boundaries are enforced by dependency-cruiser:
 - Production code must NOT import from `__tests__/`
 - No circular dependencies
 
+## Observability
+
+The application uses OpenTelemetry for metrics and traces, Pino for structured
+logging, and Sentry for error tracking. Everything is disabled by default
+without the corresponding environment variables — local development is
+unaffected.
+
+### Custom Metrics
+
+To add a new application metric:
+
+1. Define an instrument in `apps/api/src/metrics/instruments.ts`:
+
+   ```typescript
+   export const myCounter = meter.createCounter('my_counter', {
+     description: 'Counts something useful',
+   })
+   ```
+
+2. Use it in the appropriate interceptor, guard, or service:
+
+   ```typescript
+   import { myCounter } from '../metrics/instruments'
+
+   myCounter.add(1, { route: '/v1/example' })
+   ```
+
+3. The Prometheus exporter on `/metrics` picks up new instruments
+   automatically. In production, Grafana Alloy scrapes the endpoint and
+   pushes metrics to Grafana Cloud.
+
+### Traces
+
+HTTP, Express, and PostgreSQL are auto-instrumented via the OTel SDK
+(`apps/api/src/instrumentation.ts`). Health check paths (`/health`,
+`/metrics`) are excluded from tracing.
+
+To add a custom span:
+
+```typescript
+import { trace } from '@opentelemetry/api'
+
+const tracer = trace.getTracer('myapp-hello')
+const span = tracer.startSpan('my-operation')
+try {
+  // ... do work
+} finally {
+  span.end()
+}
+```
+
+### Local Testing
+
+- **Metrics:** `curl http://localhost:3001/metrics` (Prometheus text format)
+- **Logs:** `docker compose logs -f app` (Pino JSON output)
+- **Traces:** disabled locally — requires `OTEL_EXPORTER_OTLP_ENDPOINT`
+
+### No-Op Behavior
+
+All observability features degrade gracefully without configuration:
+
+- No Sentry errors without `SENTRY_DSN`
+- No trace export without `OTEL_EXPORTER_OTLP_ENDPOINT`
+- Prometheus `/metrics` always works (local exporter, no external dependency)
+
+For the full observability stack details (dashboards, alerts, Grafana Cloud
+setup), see [docs/observability.md](docs/observability.md).
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
