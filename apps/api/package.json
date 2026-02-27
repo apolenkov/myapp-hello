@@ -52,7 +52,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.0",
     "@types/pg": "^8.16.0",
-    "@types/supertest": "^6.0.3",
+    "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^4.0.18",
     "dependency-cruiser": "^17.3.8",
     "eslint": "^10.0.2",
