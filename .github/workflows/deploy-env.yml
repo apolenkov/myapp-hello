@@ -1,0 +1,148 @@
+---
+# Reusable deploy workflow — called once per environment (dev, staging, production).
+# Handles: GHCR source configuration, Dokploy deploy trigger, health check polling,
+# and optional production-only steps (Grafana annotation, trace verification).
+name: Deploy to Environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment name (dev, staging, production)
+        required: true
+        type: string
+      is_production:
+        description: Enable production-only steps (Grafana annotation, trace verification)
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      DOKPLOY_URL:
+        required: true
+      DOKPLOY_TOKEN:
+        required: true
+      DOKPLOY_SERVICE_ID:
+        required: true
+      APP_PUBLIC_URL:
+        required: true
+      GRAFANA_URL:
+        required: false
+      GRAFANA_API_TOKEN:
+        required: false
+      GRAFANA_TEMPO_QUERY_URL:
+        required: false
+      GRAFANA_TEMPO_USER:
+        required: false
+      GRAFANA_TEMPO_READ_TOKEN:
+        required: false
+      GRAFANA_TEMPO_DATASOURCE_UID:
+        required: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/myapp-api
+
+jobs:
+  deploy:
+    name: Deploy → ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}-${{ github.ref }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout (production only)
+        if: inputs.is_production
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Configure GHCR source
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA::7}"
+          echo "Setting ${{ inputs.environment }} to docker source: $IMAGE_TAG"
+          BODY=$(jq -nc \
+            --arg id "${{ secrets.DOKPLOY_SERVICE_ID }}" \
+            --arg img "$IMAGE_TAG" \
+            '{"json":{"applicationId":$id,"sourceType":"docker","dockerImage":$img}}')
+          curl -sf -X POST \
+            "${{ secrets.DOKPLOY_URL }}/api/trpc/application.update" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY"
+
+      - name: Deploy to Dokploy (${{ inputs.environment }})
+        run: |
+          BODY=$(jq -nc --arg id "${{ secrets.DOKPLOY_SERVICE_ID }}" \
+            '{"json":{"applicationId":$id}}')
+          curl -sf -X POST \
+            "${{ secrets.DOKPLOY_URL }}/api/trpc/application.deploy" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY"
+          echo "Deploy to ${{ inputs.environment }} triggered"
+
+      - name: Verify health
+        run: |
+          URL="${{ secrets.APP_PUBLIC_URL }}"
+          if [ -z "$URL" ]; then
+            echo "APP_PUBLIC_URL not configured for ${{ inputs.environment }}, skipping"
+            exit 0
+          fi
+          for i in $(seq 1 20); do
+            HTTP_CODE=$(curl -so /dev/null -w '%{http_code}' "$URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed (attempt $i/20)"
+              exit 0
+            fi
+            echo "Attempt $i/20 — HTTP $HTTP_CODE, retrying in 15s..."
+            sleep 15
+          done
+          echo "Health check did not pass within 300s"
+          exit 1
+
+      - name: Verify traces in Grafana Tempo
+        if: inputs.is_production && always()
+        continue-on-error: true
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_API_TOKEN: ${{ secrets.GRAFANA_API_TOKEN }}
+          GRAFANA_TEMPO_QUERY_URL: ${{ secrets.GRAFANA_TEMPO_QUERY_URL }}
+          GRAFANA_TEMPO_USER: ${{ secrets.GRAFANA_TEMPO_USER }}
+          GRAFANA_TEMPO_READ_TOKEN: ${{ secrets.GRAFANA_TEMPO_READ_TOKEN }}
+          GRAFANA_TEMPO_DATASOURCE_UID: ${{ secrets.GRAFANA_TEMPO_DATASOURCE_UID }}
+          SERVICE_NAME: myapp-hello
+          SERVICE_NAMESPACE: my-application-group
+          DEPLOYMENT_ENVIRONMENT: production
+          LOOKBACK: 1h
+          LIMIT: 20
+        run: |
+          if [ -z "$GRAFANA_API_TOKEN" ] && (
+            [ -z "$GRAFANA_TEMPO_QUERY_URL" ] ||
+            [ -z "$GRAFANA_TEMPO_USER" ] ||
+            [ -z "$GRAFANA_TEMPO_READ_TOKEN" ]
+          ); then
+            echo "Tempo trace verification skipped (missing Grafana API token and direct Tempo credentials)"
+            exit 0
+          fi
+          chmod +x scripts/verify-grafana-traces.sh
+          scripts/verify-grafana-traces.sh
+
+      - name: Create Grafana deploy annotation
+        if: inputs.is_production && always()
+        continue-on-error: true
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_API_TOKEN: ${{ secrets.GRAFANA_API_TOKEN }}
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          if [ -n "$GRAFANA_URL" ] && [ -n "$GRAFANA_API_TOKEN" ]; then
+            BODY=$(jq -nc --arg text "Deploy $DEPLOY_SHA to production" \
+              '{"text":$text,"tags":["deploy","production"]}')
+            curl -sf -X POST "$GRAFANA_URL/api/annotations" \
+              -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$BODY"
+            echo "Grafana annotation created"
+          else
+            echo "Grafana annotation skipped (secrets not configured)"
+          fi

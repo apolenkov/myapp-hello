@@ -16,6 +16,13 @@ module.exports = {
       to: { path: '^src/(auth|metrics)' },
     },
     {
+      name: 'metrics-no-feature-imports',
+      severity: 'error',
+      comment: 'Metrics module must not depend on feature modules',
+      from: { path: '^src/metrics' },
+      to: { path: '^src/(auth|database)' },
+    },
+    {
       name: 'no-test-in-production',
       severity: 'error',
       comment: 'Production code must not import test files',

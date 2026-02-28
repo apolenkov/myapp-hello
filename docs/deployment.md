@@ -274,7 +274,7 @@ Run this quick checklist after each deploy and at least once daily on the VPS.
 7. **Routing/TLS** — verify domains resolve and TLS cert expiration is within safe window.
 8. **Observability** — confirm `/metrics` is reachable and recent traces appear in Grafana.
 
-For full step-by-step ops detail, use `docs/guide-ru.md` (manual checks) and
+For full step-by-step ops detail, use `docs/guide.md` (manual checks) and
 `infra/ansible/setup-vps-housekeeping.yml` + `infra/ansible/setup-db-backups.yml`.
 
 ### Required VPS Environment Variables
