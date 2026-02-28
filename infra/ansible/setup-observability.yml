@@ -86,6 +86,7 @@
           GRAFANA_API_TOKEN={{ grafana_api_token }}
         mode: '0600'
       register: env_changed
+      no_log: true
 
     # ── Ensure dokploy-network exists ────────────────────────────────
     - name: Check if dokploy-network exists

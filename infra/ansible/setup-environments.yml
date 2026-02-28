@@ -125,6 +125,7 @@
       loop: '{{ target_envs }}'
       loop_control:
         label: '{{ item }}'
+      no_log: true
 
     # ── Apply env vars ──────────────────────────────────────────────────
     - name: Save environment variables

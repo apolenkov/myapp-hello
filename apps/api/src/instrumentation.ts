@@ -55,10 +55,9 @@ const createTraceExporter = (): OTLPTraceExporter | undefined => {
 
 const traceExporter = createTraceExporter()
 
-const spanProcessors: SpanProcessor[] = [new SentrySpanProcessor()]
-if (traceExporter) {
-  spanProcessors.push(new BatchSpanProcessor(traceExporter))
-}
+const spanProcessors: SpanProcessor[] = traceExporter
+  ? [new SentrySpanProcessor(), new BatchSpanProcessor(traceExporter)]
+  : [new SentrySpanProcessor()]
 
 const sdk = new NodeSDK({
   resource,
@@ -66,8 +65,12 @@ const sdk = new NodeSDK({
   spanProcessors,
   instrumentations: [
     new HttpInstrumentation({
-      ignoreIncomingRequestHook: (req: IncomingMessage): boolean =>
-        IGNORED_PATHS.has(req.url ?? ''),
+      ignoreIncomingRequestHook: (req: IncomingMessage): boolean => {
+        const raw = req.url ?? ''
+        const qIndex = raw.indexOf('?')
+        const pathname = qIndex === -1 ? raw : raw.slice(0, qIndex)
+        return IGNORED_PATHS.has(pathname)
+      },
     }),
     new ExpressInstrumentation(),
     new PgInstrumentation(),

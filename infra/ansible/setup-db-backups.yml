@@ -39,6 +39,7 @@
           x-api-key: '{{ dokploy_token }}'
         return_content: true
       register: destinations_resp
+      no_log: true
 
     - name: Find existing destination by name
       ansible.builtin.set_fact:
@@ -70,6 +71,7 @@
         return_content: true
       register: create_dest_resp
       when: not existing_destination
+      no_log: true
 
     - name: Set destination ID
       ansible.builtin.set_fact:
@@ -91,6 +93,7 @@
           x-api-key: '{{ dokploy_token }}'
         return_content: true
       register: projects_resp
+      no_log: true
 
     - name: Extract PostgreSQL instances
       ansible.builtin.set_fact:
@@ -123,6 +126,7 @@
       loop_control:
         label: '{{ item.name }}'
       register: pg_details
+      no_log: true
 
     - name: Build list of instances needing backup config
       ansible.builtin.set_fact:
@@ -163,6 +167,7 @@
       loop_control:
         label: '{{ item.name }}'
       register: backup_configs
+      no_log: true
 
     - name: Show results
       ansible.builtin.debug:
@@ -189,6 +194,7 @@
         label: '{{ item.name }}'
       register: pg_final
       tags: [test-backup]
+      no_log: true
 
     - name: Trigger manual backup for each instance
       ansible.builtin.uri:
@@ -207,6 +213,7 @@
         label: '{{ item.item.name }}'
       when: item.json.result.data.json.backups | length > 0
       tags: [test-backup]
+      no_log: true
 
     - name: Summary
       ansible.builtin.debug:

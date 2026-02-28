@@ -135,8 +135,8 @@ jobs:
             exit 1
           fi
 
-          echo "$POSTGRES_JSON" | jq -c '.[]' \
-            | while read -r PG; do
+          FAILURES=0
+          while read -r PG; do
             NAME=$(echo "$PG" | jq -r '.name')
             PG_ID=$(echo "$PG" | jq -r '.postgresId')
             DB=$(echo "$PG" | jq -r '.databaseName')
@@ -171,7 +171,13 @@ jobs:
                && [ "$CODE" -lt 300 ]; then
               echo "Schedule created for $NAME"
             else
-              echo "::warning::Failed for $NAME ($CODE)"
+              echo "::error::Failed for $NAME ($CODE)"
               echo "$BODY"
+              FAILURES=$((FAILURES + 1))
             fi
-          done
+          done < <(echo "$POSTGRES_JSON" | jq -c '.[]')
+
+          if [ "$FAILURES" -gt 0 ]; then
+            echo "::error::$FAILURES backup configuration(s) failed"
+            exit 1
+          fi

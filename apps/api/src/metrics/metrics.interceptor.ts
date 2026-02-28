@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common'
 import type { Request, Response } from 'express'
-import { Observable, tap } from 'rxjs'
+import { finalize, Observable } from 'rxjs'
 
 import { IGNORED_PATHS } from '../constants'
 import { httpRequestDuration, httpRequestsTotal } from './instruments'
@@ -19,7 +19,7 @@ export class MetricsInterceptor implements NestInterceptor {
     }
 
     return next.handle().pipe(
-      tap(() => {
+      finalize(() => {
         const durationS = (performance.now() - start) / 1000
         const attrs = {
           method: req.method,

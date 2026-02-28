@@ -81,7 +81,7 @@ When `DATABASE_URL` is not set the app runs without a database and reports `db: 
 
 | Method | Path            | Auth | Description                           |
 | ------ | --------------- | ---- | ------------------------------------- |
-| GET    | `/`             | None | Hello World response with DB status   |
+| GET    | `/v1`           | None | Hello World response with DB status   |
 | GET    | `/health`       | None | Health check — returns `status: "ok"` |
 | GET    | `/metrics`      | None | Prometheus metrics (internal only)    |
 | GET    | `/docs`         | None | Swagger UI (OpenAPI 3.0)              |

@@ -226,8 +226,8 @@ the application using Ansible.
 ### Initial Deploy
 
 ```bash
-cd infra-ansible
-ansible-playbook playbooks/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
+cd infra/ansible
+ansible-playbook disaster-recovery/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
 ```
 
 This copies all configs from `observability/` to `/opt/observability` on the VPS, creates a `.env`
@@ -236,7 +236,7 @@ file with Grafana credentials from the Ansible vault, and starts all 5 services 
 ### Full Stack Deploy (Including Observability)
 
 ```bash
-ansible-playbook playbooks/site.yml -i inventory/hosts.yml --ask-vault-pass
+ansible-playbook disaster-recovery/site.yml -i inventory/hosts.yml --ask-vault-pass
 ```
 
 ### Updating Configs
@@ -244,7 +244,7 @@ ansible-playbook playbooks/site.yml -i inventory/hosts.yml --ask-vault-pass
 After modifying any file in `observability/`, redeploy the stack:
 
 ```bash
-ansible-playbook playbooks/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
+ansible-playbook disaster-recovery/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
 ```
 
 The playbook uses `synchronize` with `delete: true`, so removed files on the local side will also

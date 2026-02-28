@@ -1,32 +1,68 @@
 - name: Restore from R2 backup
   hosts: vps
   vars_files: [../vars/vault.yml]
+  vars:
+    environments:
+      - name: prod
+        db: "{{ db_name_prod | default('myapp_prod') }}"
+      - name: staging
+        db: "{{ db_name_staging | default('myapp_staging') }}"
+      - name: dev
+        db: "{{ db_name_dev | default('myapp_dev') }}"
   tasks:
     - name: Find latest backup
-      shell: rclone lsf r2:myapp-backups --dirs-only | sort | tail -1 | tr -d '/'
+      ansible.builtin.shell: rclone lsf r2:myapp-backups --dirs-only | sort | tail -1 | tr -d '/'
       register: latest_backup
+      changed_when: false
       failed_when: latest_backup.stdout == ''
 
     - name: Download latest backup
-      shell: rclone copy "r2:myapp-backups/{{ latest_backup.stdout }}" /tmp/restore/
+      ansible.builtin.shell: rclone copy "r2:myapp-backups/{{ latest_backup.stdout }}" /tmp/restore/
       args:
         creates: /tmp/restore/postgres
 
     - name: Restore Dokploy config
-      synchronize:
+      ansible.posix.synchronize:
         src: /tmp/restore/configs/dokploy/
         dest: /etc/dokploy/
         delete: false
 
-    - name: Restore PostgreSQL databases
-      shell: |
-        for SVC in prod staging dev; do
-          CNAME=$(docker ps --filter name="pg-${SVC}" --format "{{.Names}}" | head -1)
-          if [ -n "$CNAME" ] && [ -f "/tmp/restore/postgres/myapp_${SVC}.sql.gz" ]; then
-            docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "DROP DATABASE IF EXISTS myapp_${SVC}"
-            docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE DATABASE myapp_${SVC}"
-            zcat "/tmp/restore/postgres/myapp_${SVC}.sql.gz" | \
-              docker exec -i "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres "myapp_${SVC}"
-            echo "Restored: ${SVC}"
-          fi
-        done
+    - name: Find PostgreSQL container for {{ item.name }}
+      ansible.builtin.shell: docker ps --filter name="pg-{{ item.name }}" --format "{% raw %}{{.Names}}{% endraw %}" | head -1
+      register: pg_containers
+      changed_when: false
+      loop: '{{ environments }}'
+      loop_control:
+        label: '{{ item.name }}'
+
+    - name: Check dump file exists for {{ item.item.name }}
+      ansible.builtin.stat:
+        path: '/tmp/restore/postgres/myapp_{{ item.item.name }}.sql.gz'
+      register: dump_files
+      loop: '{{ pg_containers.results }}'
+      loop_control:
+        label: '{{ item.item.name }}'
+      when: item.stdout != ''
+
+    - name: Restore PostgreSQL database — {{ item.0.item.name }}
+      ansible.builtin.shell: |
+        set -euo pipefail
+        CNAME="{{ item.0.stdout }}"
+        DB="{{ item.0.item.db }}"
+        DUMP="/tmp/restore/postgres/myapp_{{ item.0.item.name }}.sql.gz"
+
+        docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "DROP DATABASE IF EXISTS ${DB}"
+        docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE DATABASE ${DB}"
+        zcat "$DUMP" | docker exec -i "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres "${DB}"
+        echo "Restored: {{ item.0.item.name }} (database: ${DB})"
+      args:
+        executable: /bin/bash
+      register: restore_result
+      failed_when: restore_result.rc != 0
+      loop: '{{ pg_containers.results | zip(dump_files.results | default([])) | list }}'
+      loop_control:
+        label: '{{ item.0.item.name }}'
+      when:
+        - item.0.stdout != ''
+        - item.1.stat is defined
+        - item.1.stat.exists

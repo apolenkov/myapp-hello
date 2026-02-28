@@ -2,16 +2,44 @@
   hosts: vps
   tasks:
     - name: Check if Dokploy already installed
-      stat:
+      ansible.builtin.stat:
         path: /etc/dokploy
       register: dokploy_installed
 
-    - name: Install Dokploy (first-time only)
-      shell: curl -fsSL https://dokploy.com/install.sh | sh
+    # Download then execute — avoids pipe-to-shell (no redirect following, inspectable)
+    # TODO: Add SHA256 checksum verification when Dokploy publishes checksums
+    - name: Download Dokploy install script
+      ansible.builtin.get_url:
+        url: https://dokploy.com/install.sh
+        dest: /tmp/dokploy-install.sh
+        mode: '0700'
+        force: true
       when: not dokploy_installed.stat.exists
 
+    - name: Verify install script was downloaded
+      ansible.builtin.stat:
+        path: /tmp/dokploy-install.sh
+      register: install_script
+      when: not dokploy_installed.stat.exists
+
+    - name: Fail if install script is empty or missing
+      ansible.builtin.fail:
+        msg: 'Dokploy install script download failed or is empty'
+      when:
+        - not dokploy_installed.stat.exists
+        - not install_script.stat.exists or install_script.stat.size == 0
+
+    - name: Run Dokploy install script (first-time only)
+      ansible.builtin.shell: /tmp/dokploy-install.sh
+      when: not dokploy_installed.stat.exists
+
+    - name: Remove install script
+      ansible.builtin.file:
+        path: /tmp/dokploy-install.sh
+        state: absent
+
     - name: Wait for Dokploy to start
-      wait_for:
+      ansible.builtin.wait_for:
         port: 3000
         host: localhost
         timeout: 120

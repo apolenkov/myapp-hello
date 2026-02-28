@@ -41,9 +41,10 @@ configuration to unauthenticated callers.
 curl https://apolenkov.duckdns.org/health
 ```
 
-### GET /
+### GET /v1
 
-Returns a Hello World payload including the current database connection status.
+Returns a Hello World payload including the current database connection status. This is a versioned
+business route — URI versioning resolves `GET /` to `GET /v1`.
 
 **Auth required:** No
 
@@ -72,7 +73,7 @@ Returns a Hello World payload including the current database connection status.
 **Example:**
 
 ```bash
-curl https://apolenkov.duckdns.org/
+curl https://apolenkov.duckdns.org/v1
 ```
 
 ### GET /metrics
@@ -257,7 +258,7 @@ flowchart TD
     throttler --> auth_guard[JwtAuthGuard\nJWT verification]
     auth_guard -->|401 if invalid| client
     auth_guard -->|@Public routes bypass| router{Route match}
-    router -->|GET /| ctrl_root[AppController\nDB status check]
+    router -->|GET /v1| ctrl_root[AppController\nDB status check]
     router -->|GET /health| ctrl_health[AppController\nHealth check]
     router -->|GET /metrics| metrics_ctrl[Metrics handler\nPrometheus text format]
     router -->|GET /docs| swagger[Swagger UI]

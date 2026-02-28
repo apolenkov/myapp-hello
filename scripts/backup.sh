@@ -3,8 +3,14 @@ set -euo pipefail
 
 ALERT_WEBHOOK="${BACKUP_ALERT_WEBHOOK:-}"
 DATE=$(date +%Y%m%d_%H%M%S)
-TMP="/tmp/backup_${DATE}"
+TMP=$(mktemp -d "/tmp/backup_${DATE}_XXXXXX")
+chmod 700 "$TMP"
 LOGFILE="/var/log/backup.log"
+
+cleanup() {
+  rm -rf "$TMP"
+}
+trap cleanup EXIT
 
 alert() {
   echo "[BACKUP ERROR] $1" | tee -a "$LOGFILE"
@@ -24,7 +30,11 @@ for SVC in prod staging dev; do
   CNAME=$(docker ps --filter name="pg-${SVC}" --format "{{.Names}}" | head -1)
   if [ -n "$CNAME" ]; then
     DUMP="$TMP/postgres/myapp_${SVC}.sql.gz"
-    docker exec "$CNAME" pg_dump -U postgres myapp_db | gzip > "$DUMP"
+    docker exec "$CNAME" pg_dump -U postgres "myapp_${SVC}" 2>>"$LOGFILE" | gzip > "$DUMP"
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+      alert "pg_dump failed for ${SVC}"
+      exit 1
+    fi
     SIZE=$(stat -c%s "$DUMP" 2>/dev/null || stat -f%z "$DUMP")
     if [ "$SIZE" -lt 1024 ]; then
       alert "Dump for ${SVC} is suspiciously small: ${SIZE} bytes"
@@ -52,6 +62,5 @@ rclone copy "$TMP" "r2:myapp-backups/${DATE}" --progress 2>>"$LOGFILE" || {
 # 5. Prune backups older than 30 days
 rclone delete r2:myapp-backups --min-age 30d 2>>"$LOGFILE" || true
 
-# Cleanup
-rm -rf "$TMP"
+# Cleanup handled by trap EXIT
 echo "$(date): Backup ${DATE} uploaded to R2 successfully" | tee -a "$LOGFILE"

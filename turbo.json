@@ -17,8 +17,21 @@
     "lint": {
       "inputs": ["src/**", "package.json", "tsconfig.json"]
     },
-    "check:arch": {},
-    "format:check": {},
+    "check:arch": {
+      "inputs": [".dependency-cruiser.cjs", "src/**/*.ts"]
+    },
+    "format:check": {
+      "inputs": [
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.js",
+        "**/*.json",
+        "**/*.md",
+        "**/*.css",
+        ".prettierrc*",
+        ".prettierignore"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true

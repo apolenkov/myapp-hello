@@ -21,7 +21,7 @@ export const createSingleValueConfigService = (value: string | undefined): Confi
  * Create a mock DatabaseService with a successful ping response.
  * Override ping behavior via vi.spyOn on the returned mock.
  */
-export const createMockDatabaseService = (pingResult = 'ok'): DatabaseService =>
+export const createMockDatabaseService = (pingResult = 'connected'): DatabaseService =>
   ({
     ping: vi.fn().mockResolvedValue(pingResult),
   }) as unknown as DatabaseService
