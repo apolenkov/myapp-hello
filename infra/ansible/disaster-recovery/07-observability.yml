@@ -1,4 +1,4 @@
-- name: Deploy observability stack (Loki + Promtail + Prometheus + Tempo + Grafana)
+- name: Deploy observability agents (Promtail + Alloy → Grafana Cloud)
   hosts: vps
   vars_files:
     - ../vars/vault.yml
@@ -17,17 +17,17 @@
         delete: true
         recursive: true
 
-    - name: Create .env for observability stack
+    - name: Create .env for observability agents
       ansible.builtin.copy:
         dest: /opt/observability/.env
         mode: '0600'
         content: |
-          GRAFANA_ADMIN_USER={{ grafana_admin_user | default('admin') }}
-          GRAFANA_ADMIN_PASSWORD={{ grafana_admin_password }}
-          GRAFANA_ROOT_URL={{ grafana_root_url | default('http://localhost:3100') }}
+          GRAFANA_API_TOKEN={{ grafana_api_token }}
+          GRAFANA_ORG_ID={{ grafana_org_id }}
+          LOKI_USER_ID={{ loki_user_id }}
       no_log: true
 
-    - name: Start observability stack
+    - name: Start observability agents
       community.docker.docker_compose_v2:
         project_src: /opt/observability
         files:
@@ -36,29 +36,28 @@
         pull: always
       register: compose_result
 
-    - name: Wait for Grafana health
+    - name: Wait for Promtail readiness
       ansible.builtin.uri:
-        url: http://localhost:3100/api/health
+        url: http://localhost:9080/ready
         status_code: 200
       retries: 10
       delay: 5
-      register: grafana_health
-      until: grafana_health.status == 200
+      register: promtail_health
+      until: promtail_health.status == 200
 
-    - name: Wait for Prometheus health
+    - name: Wait for Alloy readiness
       ansible.builtin.uri:
-        url: http://localhost:9090/-/healthy
+        url: http://localhost:12345/-/ready
         status_code: 200
       retries: 10
       delay: 5
-      register: prometheus_health
-      until: prometheus_health.status == 200
+      register: alloy_health
+      until: alloy_health.status == 200
 
     - name: Print stack status
       ansible.builtin.debug:
         msg: >-
-          Observability stack deployed.
-          Grafana: http://{{ ansible_host }}:3100
-          Prometheus: internal only (port 9090)
-          Loki: internal only (port 3100)
-          Tempo: internal only (port 3200/4318)
+          Observability agents deployed.
+          Promtail: http://{{ ansible_host }}:9080/targets
+          Alloy: http://{{ ansible_host }}:12345
+          Telemetry pushed to Grafana Cloud.

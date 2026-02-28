@@ -220,8 +220,9 @@ docker service update --force traefik_traefik
 
 ## Observability Stack Deployment
 
-The observability stack (Grafana, Prometheus, Loki, Tempo, Promtail) is deployed separately from
-the application using Ansible.
+The observability stack consists of 2 lightweight agents (Promtail + Grafana Alloy) deployed on the
+VPS, pushing telemetry to Grafana Cloud. No local Grafana, Prometheus, Loki, or Tempo instances run
+on the VPS.
 
 ### Initial Deploy
 
@@ -231,7 +232,7 @@ ansible-playbook disaster-recovery/07-observability.yml -i inventory/hosts.yml -
 ```
 
 This copies all configs from `observability/` to `/opt/observability` on the VPS, creates a `.env`
-file with Grafana credentials from the Ansible vault, and starts all 5 services via Docker Compose.
+file with Grafana Cloud credentials, and starts the 2 agent services via Docker Compose.
 
 ### Full Stack Deploy (Including Observability)
 
@@ -248,7 +249,7 @@ ansible-playbook disaster-recovery/07-observability.yml -i inventory/hosts.yml -
 ```
 
 The playbook uses `synchronize` with `delete: true`, so removed files on the local side will also
-be removed on the VPS. Grafana, Prometheus, and Loki will pick up config changes on restart.
+be removed on the VPS. Promtail and Alloy will pick up config changes on restart.
 
 ### Post-Deploy Verification
 
@@ -276,24 +277,27 @@ Run this quick checklist after each deploy and at least once daily on the VPS.
 For full step-by-step ops detail, use `docs/guide-ru.md` (manual checks) and
 `infra/ansible/setup-vps-housekeeping.yml` + `infra/ansible/setup-db-backups.yml`.
 
-### Ansible Vault Variables
+### Required VPS Environment Variables
 
-| Variable                 | Description                                           |
-| ------------------------ | ----------------------------------------------------- |
-| `grafana_admin_user`     | Grafana admin username (default: `admin`)             |
-| `grafana_admin_password` | Grafana admin password                                |
-| `grafana_root_url`       | Grafana public URL (default: `http://localhost:3100`) |
+| Variable            | Description                                                         |
+| ------------------- | ------------------------------------------------------------------- |
+| `GRAFANA_API_TOKEN` | Grafana Cloud API key with push permissions for Loki and Prometheus |
+| `GRAFANA_ORG_ID`    | Grafana Cloud organization/user ID for Prometheus remote_write auth |
+| `LOKI_USER_ID`      | Grafana Cloud Loki user ID for Promtail basic auth                  |
+
+Find `GRAFANA_ORG_ID` and `LOKI_USER_ID` in **Grafana Cloud > My Account > Stack > Details**
+(Prometheus and Loki sections respectively).
 
 ### Access
 
-| Service    | URL                         | Access        |
-| ---------- | --------------------------- | ------------- |
-| Grafana    | `http://185.239.48.55:3100` | Admin login   |
-| Prometheus | `http://localhost:9090`     | Internal only |
-| Loki       | `http://localhost:3100`     | Internal only |
-| Tempo      | `http://localhost:3200`     | Internal only |
+| Service       | URL                                 | Access            |
+| ------------- | ----------------------------------- | ----------------- |
+| Grafana Cloud | `https://<stack>.grafana.net`       | Grafana Cloud SSO |
+| Promtail UI   | `http://185.239.48.55:9080/targets` | Internal only     |
+| Alloy UI      | `http://185.239.48.55:12345`        | Internal only     |
 
-For details on dashboards, alerts, and adding new services, see the
+Dashboards, alerts, and retention are managed in the **Grafana Cloud web interface**. For details on
+the observability architecture and adding new services, see the
 [Observability Guide](observability.md).
 
 ## GitHub Secrets

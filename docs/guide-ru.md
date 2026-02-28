@@ -422,24 +422,24 @@ curl -s -H "x-api-key: $DOKPLOY_TOKEN" \
   | jq -r '.result.data.json.env' | grep SENTRY
 ```
 
-### Grafana
+### Grafana Cloud
 
-Локальный стек (docker-compose):
+Дашборды и алерты управляются через Grafana Cloud (не локальный инстанс).
+
+На VPS работают только 2 агента (Promtail + Alloy), которые пушат телеметрию в Grafana Cloud:
 
 ```bash
-# Запустить полный стек наблюдаемости
-docker compose -f observability/docker-compose.observability.yml up -d
+# Запустить агенты наблюдаемости на VPS
+cd /opt/observability
+docker compose -f docker-compose.observability.yml up -d
 
-# Открыть Grafana
-open http://localhost:3000
-# Логин: admin / $GRAFANA_ADMIN_PASSWORD
+# Проверить статус агентов
+docker ps | grep -E 'promtail|alloy'
 ```
 
-Предварительно настроены:
+Конфигурация дашбордов хранится в `observability/grafana/dashboards/` для версионирования:
 
-- Datasources: Prometheus, Loki, Tempo
-- Dashboards: app-overview, node-runtime, logs-overview
-- Alerts: (настраиваются в `provisioning/alerts.yml`)
+- app-overview, node-runtime, logs-overview, api-telemetry
 
 ---
 
