@@ -63,7 +63,7 @@ describe('DatabaseService — no database', () => {
   })
 })
 
-describe('DatabaseService — with database', () => {
+describe('DatabaseService — health check', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -114,6 +114,12 @@ describe('DatabaseService — with database', () => {
     await service.ping()
 
     expect(logSpy).toHaveBeenCalledWith(DB_QUERY_FAILED, 'raw string error')
+  })
+})
+
+describe('DatabaseService — query and lifecycle', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('should delegate query to pool', async () => {

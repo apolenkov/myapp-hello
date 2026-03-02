@@ -67,7 +67,7 @@ describe('JwtAuthGuard — non-JWT errors propagate instead of being swallowed',
 
 const TEST_ROUTE = '/some-unknown-path'
 
-describe('MetricsInterceptor — route fallback to req.path', () => {
+describe('MetricsInterceptor — records metrics using req.path fallback', () => {
   it('uses req.path as route when req.route is undefined and records metrics', async () => {
     const recordSpy = vi
       .spyOn(metricsModule.httpRequestDuration, 'record')
@@ -112,8 +112,10 @@ describe('MetricsInterceptor — route fallback to req.path', () => {
     recordSpy.mockRestore()
     addSpy.mockRestore()
   })
+})
 
-  it('skips metrics for excluded paths', async () => {
+describe('MetricsInterceptor — skips excluded paths', () => {
+  it('does not record metrics for /health and other excluded routes', async () => {
     const recordSpy = vi
       .spyOn(metricsModule.httpRequestDuration, 'record')
       .mockImplementation(() => undefined)

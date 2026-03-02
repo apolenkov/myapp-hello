@@ -45,7 +45,7 @@ afterAll(async () => {
   await ctx.app.close()
 })
 
-describe('Auth Guard', () => {
+describe('Auth Guard — access control', () => {
   it('should return 401 when no Authorization header on protected route', async () => {
     const res = await request(ctx.app.getHttpServer()).get(PROTECTED_ROUTE)
 
@@ -91,7 +91,9 @@ describe('Auth Guard', () => {
     expect(res.status).toBe(401)
     expect(res.body).toEqual({ error: ERROR_UNAUTHORIZED })
   })
+})
 
+describe('Auth Guard — token validation', () => {
   it('should return 200 for valid token on protected route', async () => {
     const jwtService = new JwtService({})
     const token = jwtService.sign(
