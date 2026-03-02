@@ -8,9 +8,8 @@ import { SentryGlobalFilter } from '@sentry/nestjs/setup'
 import helmet from 'helmet'
 import { Logger as PinoLogger } from 'nestjs-pino'
 
-// instrumentation MUST be imported before AppModule so OTel SDK
-// registers the PrometheusExporter before custom meters are created
 import { prometheusExporter } from './instrumentation'
+
 import { AppModule } from './app.module'
 import { UnauthorizedExceptionFilter } from './auth/unauthorized-exception.filter'
 

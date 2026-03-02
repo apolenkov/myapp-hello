@@ -9,6 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { AppModule } from '../app.module'
 import { JWT_AUDIENCE, JWT_ISSUER } from '../auth/jwt.constants'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
+import { DB_STATUS_CONNECTED } from '../database/database.constants'
 import { DatabaseService } from '../database/database.service'
 import { TEST_JWT_SECRET, testConfigService } from './test-utils'
 
@@ -42,7 +43,7 @@ beforeAll(async () => {
     .useValue(testConfigService)
     .overrideProvider(DatabaseService)
     .useValue({
-      ping: vi.fn().mockResolvedValue('connected'),
+      ping: vi.fn().mockResolvedValue(DB_STATUS_CONNECTED),
       isConfigured: true,
       query: dbQuery,
       onModuleDestroy: vi.fn(),

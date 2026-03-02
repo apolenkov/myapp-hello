@@ -1,8 +1,6 @@
 import { Logger } from '@nestjs/common'
 import { readdir, readFile } from 'fs/promises'
-
 import { join } from 'path'
-
 import type { Pool } from 'pg'
 
 const ADVISORY_LOCK_KEY = 7_777_777

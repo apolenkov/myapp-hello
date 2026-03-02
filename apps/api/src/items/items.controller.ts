@@ -21,11 +21,10 @@ import {
 } from '@nestjs/swagger'
 
 import { CurrentUser } from '../auth/current-user.decorator'
-
-const ITEM_NOT_FOUND = 'Item not found'
 import type { JwtPayload } from '../auth/request-with-user'
 import { CreateItemDto } from './dto/create-item.dto'
 import { UpdateItemDto } from './dto/update-item.dto'
+import { DEFAULT_LIMIT, DEFAULT_PAGE, ITEM_NOT_FOUND, MAX_LIMIT } from './items.constants'
 import { ItemsService } from './items.service'
 import type { Item, PaginatedItems } from './items.types'
 
@@ -51,11 +50,11 @@ export class ItemsController {
   @ApiResponse({ status: 200, description: 'Paginated list of items' })
   async findAll(
     @CurrentUser() user: JwtPayload,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(DEFAULT_PAGE), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(DEFAULT_LIMIT), ParseIntPipe) limit: number,
   ): Promise<PaginatedItems> {
     const safePage = Math.max(1, page)
-    const safeLimit = Math.min(100, Math.max(1, limit))
+    const safeLimit = Math.min(MAX_LIMIT, Math.max(1, limit))
     return this.items.findAll(user.sub, safePage, safeLimit)
   }
 

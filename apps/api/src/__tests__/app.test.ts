@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common'
 import { VersioningType } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { Test } from '@nestjs/testing'
 import { getOptionsToken } from '@nestjs/throttler'
@@ -7,10 +8,9 @@ import helmet from 'helmet'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { ConfigService } from '@nestjs/config'
-
 import { AppModule } from '../app.module'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
+import { DB_STATUS_NOT_CONFIGURED } from '../database/database.constants'
 import { createBaseTestApp, testConfigService } from './test-utils'
 
 const ctx = {} as { app: INestApplication }
@@ -56,7 +56,7 @@ describe('GET /v1', () => {
 
     expect(res.body).toMatchObject({
       message: 'Hello World!',
-      db: 'not configured',
+      db: DB_STATUS_NOT_CONFIGURED,
     })
     expect(res.body).toHaveProperty('env')
     expect(res.body).toHaveProperty('app')

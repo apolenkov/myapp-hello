@@ -1,9 +1,14 @@
-import type { Pool } from 'pg'
 import { Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Test } from '@nestjs/testing'
+import type { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import {
+  DB_STATUS_CONNECTED,
+  DB_STATUS_ERROR,
+  DB_STATUS_NOT_CONFIGURED,
+} from '../database/database.constants'
 import { DatabaseService } from '../database/database.service'
 import { createSingleValueConfigService } from './helpers/mocks'
 
@@ -41,7 +46,7 @@ describe('DatabaseService — no database', () => {
     const service = await createDbService()
 
     expect(service.isConfigured).toBe(false)
-    expect(await service.ping()).toBe('not configured')
+    expect(await service.ping()).toBe(DB_STATUS_NOT_CONFIGURED)
   })
 
   it('should throw on query when database is not configured', async () => {
@@ -75,7 +80,7 @@ describe('DatabaseService — with database', () => {
 
     vi.spyOn(pool, 'query').mockResolvedValue(undefined as never)
 
-    expect(await service.ping()).toBe('connected')
+    expect(await service.ping()).toBe(DB_STATUS_CONNECTED)
   })
 
   it('should return "error" when pool.query fails', async () => {
@@ -84,7 +89,7 @@ describe('DatabaseService — with database', () => {
 
     vi.spyOn(pool, 'query').mockRejectedValue(new Error(CONN_REFUSED))
 
-    expect(await service.ping()).toBe('error')
+    expect(await service.ping()).toBe(DB_STATUS_ERROR)
   })
 
   it('should log error stack when pool.query throws an Error', async () => {

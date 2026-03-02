@@ -34,6 +34,20 @@ module.exports = tseslint.config(
     },
   },
 
+  // OTel SDK entrypoints: instrumentation MUST load before AppModule
+  // so custom meters bind to the real MeterProvider, not the no-op default
+  {
+    files: ['src/main.ts', 'src/__tests__/test-utils.ts'],
+    rules: {
+      'simple-import-sort/imports': [
+        'error',
+        {
+          groups: [['^\\u0000'], ['^node:'], ['^@?\\w'], ['^\\.\\.?/.*instrumentation'], ['^\\.']],
+        },
+      ],
+    },
+  },
+
   // Ignore patterns
   {
     ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'vitest.config.ts', '*.cjs'],

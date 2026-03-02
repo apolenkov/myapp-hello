@@ -4,18 +4,25 @@
  */
 import { metrics } from '@opentelemetry/api'
 
-const meter = metrics.getMeter('myapp-hello')
+import {
+  HTTP_HISTOGRAM_BUCKETS,
+  METER_NAME,
+  METRIC_HTTP_REQUEST_DURATION,
+  METRIC_HTTP_REQUESTS,
+} from './metrics.constants'
+
+const meter = metrics.getMeter(METER_NAME)
 
 /** Histogram: HTTP request duration in seconds. */
-export const httpRequestDuration = meter.createHistogram('http_request_duration', {
+export const httpRequestDuration = meter.createHistogram(METRIC_HTTP_REQUEST_DURATION, {
   description: 'HTTP request duration in seconds',
   unit: 's',
   advice: {
-    explicitBucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+    explicitBucketBoundaries: HTTP_HISTOGRAM_BUCKETS,
   },
 })
 
 /** Counter: total HTTP requests. */
-export const httpRequestsTotal = meter.createCounter('http_requests', {
+export const httpRequestsTotal = meter.createCounter(METRIC_HTTP_REQUESTS, {
   description: 'Total HTTP requests',
 })

@@ -1,6 +1,7 @@
 import type { ConfigService } from '@nestjs/config'
 import { vi } from 'vitest'
 
+import { DB_STATUS_CONNECTED } from '../../database/database.constants'
 import type { DatabaseService } from '../../database/database.service'
 
 /**
@@ -29,7 +30,7 @@ export const createSingleValueConfigService = (value: string | undefined): Confi
  * Create a mock DatabaseService with a successful ping response.
  * Override ping behavior via vi.spyOn on the returned mock.
  */
-export const createMockDatabaseService = (pingResult = 'connected'): DatabaseService =>
+export const createMockDatabaseService = (pingResult = DB_STATUS_CONNECTED): DatabaseService =>
   ({
     ping: vi.fn().mockResolvedValue(pingResult),
     isConfigured: true,

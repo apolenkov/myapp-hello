@@ -3,6 +3,18 @@ import { ConfigService } from '@nestjs/config'
 import type { QueryResult } from 'pg'
 import { Pool } from 'pg'
 
+import {
+  DB_CONNECTION_TIMEOUT_MS,
+  DB_IDLE_TIMEOUT_MS,
+  DB_NOT_CONFIGURED_ERROR,
+  DB_POOL_MAX,
+  DB_SHUTDOWN_TIMEOUT_MS,
+  DB_STATEMENT_TIMEOUT_MS,
+  DB_STATUS_CONNECTED,
+  DB_STATUS_ERROR,
+  DB_STATUS_NOT_CONFIGURED,
+} from './database.constants'
+
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly logger = new Logger(DatabaseService.name)
@@ -13,10 +25,10 @@ export class DatabaseService implements OnModuleDestroy {
     this.pool = databaseUrl
       ? new Pool({
           connectionString: databaseUrl,
-          max: 20,
-          idleTimeoutMillis: 30_000,
-          connectionTimeoutMillis: 30_000,
-          statement_timeout: 30_000,
+          max: DB_POOL_MAX,
+          idleTimeoutMillis: DB_IDLE_TIMEOUT_MS,
+          connectionTimeoutMillis: DB_CONNECTION_TIMEOUT_MS,
+          statement_timeout: DB_STATEMENT_TIMEOUT_MS,
         })
       : null
   }
@@ -29,7 +41,7 @@ export class DatabaseService implements OnModuleDestroy {
   /** Execute a SQL query, throwing if the database is not configured. */
   async query(text: string, params?: unknown[]): Promise<QueryResult> {
     if (!this.pool) {
-      throw new Error('Database is not configured')
+      throw new Error(DB_NOT_CONFIGURED_ERROR)
     }
     return this.pool.query(text, params)
   }
@@ -39,16 +51,16 @@ export class DatabaseService implements OnModuleDestroy {
    * Returns 'connected', 'error', or 'not configured'.
    */
   async ping(): Promise<string> {
-    if (!this.pool) return 'not configured'
+    if (!this.pool) return DB_STATUS_NOT_CONFIGURED
     try {
       await this.pool.query('SELECT 1')
-      return 'connected'
+      return DB_STATUS_CONNECTED
     } catch (error) {
       this.logger.error(
         'Database health check failed',
         error instanceof Error ? error.stack : String(error),
       )
-      return 'error'
+      return DB_STATUS_ERROR
     }
   }
 
@@ -58,7 +70,7 @@ export class DatabaseService implements OnModuleDestroy {
         setTimeout(() => {
           this.logger.warn('Pool shutdown timed out after 10s, forcing close')
           resolve()
-        }, 10_000)
+        }, DB_SHUTDOWN_TIMEOUT_MS)
       })
       await Promise.race([this.pool.end(), timeout])
     }

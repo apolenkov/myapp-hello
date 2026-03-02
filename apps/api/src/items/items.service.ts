@@ -1,10 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 
 import { DatabaseService } from '../database/database.service'
-
-const ITEM_NOT_FOUND = 'Item not found'
 import type { CreateItemDto } from './dto/create-item.dto'
 import type { UpdateItemDto } from './dto/update-item.dto'
+import { ITEM_NOT_FOUND } from './items.constants'
 import type { Item, PaginatedItems } from './items.types'
 
 interface ItemRow {

@@ -6,6 +6,7 @@ const importX = require('eslint-plugin-import-x')
 const jsdoc = require('eslint-plugin-jsdoc')
 const regexp = require('eslint-plugin-regexp')
 const security = require('eslint-plugin-security')
+const simpleImportSort = require('eslint-plugin-simple-import-sort')
 const n = require('eslint-plugin-n')
 
 /**
@@ -38,10 +39,12 @@ const base = [
 
   // Import order + no cycles
   {
-    plugins: { 'import-x': importX },
+    plugins: { 'import-x': importX, 'simple-import-sort': simpleImportSort },
     rules: {
       'import-x/no-cycle': 'error',
       'import-x/no-self-import': 'error',
+      'simple-import-sort/imports': 'error',
+      'simple-import-sort/exports': 'error',
     },
   },
 

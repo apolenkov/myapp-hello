@@ -11,6 +11,7 @@
     "eslint-plugin-n": "^17.24.0",
     "eslint-plugin-regexp": "^3.0.0",
     "eslint-plugin-security": "^4.0.0",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-sonarjs": "^4.0.0",
     "eslint-plugin-unicorn": "^63.0.0",
     "typescript-eslint": "^8.56.1"

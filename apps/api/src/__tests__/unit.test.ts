@@ -1,5 +1,5 @@
-import { HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common'
 import type { ArgumentsHost, CallHandler, ExecutionContext } from '@nestjs/common'
+import { HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common'
 import type { ConfigService } from '@nestjs/config'
 import type { AbstractHttpAdapter, Reflector } from '@nestjs/core'
 import type { JwtService } from '@nestjs/jwt'
@@ -9,8 +9,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { AppService } from '../app.service'
 import { JwtAuthGuard } from '../auth/auth.guard'
-import { MetricsInterceptor } from '../metrics/metrics.interceptor'
 import * as metricsModule from '../metrics/instruments'
+import { MetricsInterceptor } from '../metrics/metrics.interceptor'
 import { createMockDatabaseService, createUndefinedConfigService } from './helpers/mocks'
 
 describe('JwtAuthGuard — missing JWT_SECRET at runtime', () => {

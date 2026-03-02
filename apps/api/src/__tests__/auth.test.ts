@@ -7,12 +7,12 @@ import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { AppModule } from '../app.module'
+import { ERROR_INVALID_TOKEN, ERROR_UNAUTHORIZED } from '../auth/auth.constants'
 import { JWT_AUDIENCE, JWT_ISSUER } from '../auth/jwt.constants'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
 import { createMockConfigService, TEST_JWT_SECRET, testConfigService } from './test-utils'
 
 const PROTECTED_ROUTE = '/v1/protected-test'
-const INVALID_TOKEN = 'Invalid token'
 
 @Controller('protected-test')
 class ProtectedTestController {
@@ -50,7 +50,7 @@ describe('Auth Guard', () => {
     const res = await request(ctx.app.getHttpServer()).get(PROTECTED_ROUTE)
 
     expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: 'Unauthorized' })
+    expect(res.body).toEqual({ error: ERROR_UNAUTHORIZED })
   })
 
   it('should return 401 for invalid token', async () => {
@@ -59,7 +59,7 @@ describe('Auth Guard', () => {
       .set('Authorization', 'Bearer invalid.token.here')
 
     expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: INVALID_TOKEN })
+    expect(res.body).toEqual({ error: ERROR_INVALID_TOKEN })
   })
 
   it('should allow access to @Public() routes without token', async () => {
@@ -89,7 +89,7 @@ describe('Auth Guard', () => {
       .set('Authorization', 'Basic some-credentials')
 
     expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: 'Unauthorized' })
+    expect(res.body).toEqual({ error: ERROR_UNAUTHORIZED })
   })
 
   it('should return 200 for valid token on protected route', async () => {
@@ -119,7 +119,7 @@ describe('Auth Guard', () => {
       .set('Authorization', `Bearer ${token}`)
 
     expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: INVALID_TOKEN })
+    expect(res.body).toEqual({ error: ERROR_INVALID_TOKEN })
   })
 
   it('should return 401 for token signed with wrong algorithm', async () => {
@@ -134,7 +134,7 @@ describe('Auth Guard', () => {
       .set('Authorization', `Bearer ${token}`)
 
     expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: INVALID_TOKEN })
+    expect(res.body).toEqual({ error: ERROR_INVALID_TOKEN })
   })
 })
 

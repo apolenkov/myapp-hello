@@ -6,19 +6,18 @@
  *
  * Exports the PrometheusExporter instance for mounting /metrics on Express.
  */
-import type { IncomingMessage } from 'http'
-
-import * as Sentry from '@sentry/nestjs'
-import { SentrySpanProcessor } from '@sentry/opentelemetry'
-import { NodeSDK } from '@opentelemetry/sdk-node'
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
-import { BatchSpanProcessor, type SpanProcessor } from '@opentelemetry/sdk-trace-base'
-import { HttpInstrumentation } from '@opentelemetry/instrumentation-http'
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express'
+import { HttpInstrumentation } from '@opentelemetry/instrumentation-http'
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg'
 import { resourceFromAttributes } from '@opentelemetry/resources'
+import { NodeSDK } from '@opentelemetry/sdk-node'
+import { BatchSpanProcessor, type SpanProcessor } from '@opentelemetry/sdk-trace-base'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
+import * as Sentry from '@sentry/nestjs'
+import { SentrySpanProcessor } from '@sentry/opentelemetry'
+import type { IncomingMessage } from 'http'
 
 import { IGNORED_PATHS } from './constants'
 

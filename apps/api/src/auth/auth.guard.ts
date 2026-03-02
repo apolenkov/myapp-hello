@@ -5,6 +5,13 @@ import { JwtService } from '@nestjs/jwt'
 import type { Request } from 'express'
 import { JsonWebTokenError } from 'jsonwebtoken'
 
+import {
+  BEARER_SCHEME_PREFIX,
+  BEARER_SCHEME_PREFIX_LENGTH,
+  ERROR_INVALID_TOKEN,
+  ERROR_UNAUTHORIZED,
+  JWT_ALGORITHM,
+} from './auth.constants'
 import { IS_PUBLIC_KEY } from './public.decorator'
 import type { JwtPayload, RequestWithUser } from './request-with-user'
 
@@ -25,28 +32,30 @@ export class JwtAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<Request>()
     const authHeader = request.headers.authorization
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined
+    const token = authHeader?.startsWith(BEARER_SCHEME_PREFIX)
+      ? authHeader.slice(BEARER_SCHEME_PREFIX_LENGTH)
+      : undefined
 
     if (!token) {
-      throw new UnauthorizedException('Unauthorized')
+      throw new UnauthorizedException(ERROR_UNAUTHORIZED)
     }
 
     const secret = this.config.get<string>('JWT_SECRET')
     if (!secret) {
-      throw new UnauthorizedException('Unauthorized')
+      throw new UnauthorizedException(ERROR_UNAUTHORIZED)
     }
 
     try {
       const payload = this.jwt.verify<JwtPayload>(token, {
         secret,
-        algorithms: ['HS256'],
+        algorithms: [JWT_ALGORITHM],
       })
       ;(request as unknown as RequestWithUser).user = payload
       return true
     } catch (err) {
       // Only catch JWT validation errors — let unexpected errors propagate
       if (err instanceof JsonWebTokenError) {
-        throw new UnauthorizedException('Invalid token')
+        throw new UnauthorizedException(ERROR_INVALID_TOKEN)
       }
       throw err
     }
