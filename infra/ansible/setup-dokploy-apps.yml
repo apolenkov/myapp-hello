@@ -1,0 +1,264 @@
+---
+# Ansible playbook: create Dokploy project, applications, and PostgreSQL services
+#
+# Prerequisites:
+#   - Dokploy installed and running (provision-vps.yml completed)
+#   - Admin account created in Dokploy UI (http://<VPS_IP>:3000)
+#   - API token generated (Dokploy Settings → API → Generate Token)
+#
+# Usage:
+#   ansible-playbook infra/ansible/setup-dokploy-apps.yml \
+#     -e @infra/ansible/vars/secrets.yml --ask-vault-pass
+#
+# What it creates:
+#   - Project "myapp-hello"
+#   - 3 applications: api-dev, api-staging, api-prod (Docker/GHCR source)
+#   - 3 PostgreSQL services: postgres-dev, postgres-staging, postgres-prod
+#
+# Idempotent: skips resources that already exist.
+# Outputs: app IDs and postgres IDs for use in secrets.yml.
+
+- name: Setup Dokploy project, apps, and databases
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    project_name: myapp-hello
+    docker_image: 'ghcr.io/apolenkov/myapp-api:latest'
+    environments:
+      - name: dev
+        app_name: api-dev
+        pg_name: postgres-dev
+        db_name: myapp_dev
+      - name: staging
+        app_name: api-staging
+        pg_name: postgres-staging
+        db_name: myapp_staging
+      - name: prod
+        app_name: api-prod
+        pg_name: postgres-prod
+        db_name: myapp_prod
+
+  tasks:
+    # ── Step 1: Find or create project ──────────────────────────────────
+    - name: Fetch all projects
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/project.all'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      register: projects_resp
+      no_log: true
+
+    - name: Find existing project
+      ansible.builtin.set_fact:
+        existing_project: >-
+          {{ projects_resp.json.result.data.json
+             | selectattr('name', 'equalto', project_name)
+             | list | first | default(false) }}
+
+    - name: Create project
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/project.create'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            name: '{{ project_name }}'
+            description: 'myapp-hello monorepo — NestJS API with PostgreSQL'
+        status_code: [200, 201]
+        return_content: true
+      register: create_project_resp
+      when: not existing_project
+      no_log: true
+
+    - name: Set project ID
+      ansible.builtin.set_fact:
+        project_id: >-
+          {{ existing_project.projectId
+             if existing_project
+             else create_project_resp.json.result.data.json.projectId }}
+
+    - name: Show project
+      ansible.builtin.debug:
+        msg: 'Project "{{ project_name }}" — ID: {{ project_id }} ({{ "existing" if existing_project else "created" }})'
+
+    # ── Step 2: Discover existing apps and databases ────────────────────
+    - name: Refresh project data
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/project.all'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      register: projects_refresh
+      no_log: true
+
+    - name: Extract existing app names
+      ansible.builtin.set_fact:
+        existing_apps: >-
+          {{ projects_refresh.json.result.data.json
+             | selectattr('projectId', 'equalto', project_id)
+             | map(attribute='environments') | flatten
+             | map(attribute='applications', default=[]) | flatten
+             | map(attribute='name') | list }}
+        existing_postgres: >-
+          {{ projects_refresh.json.result.data.json
+             | selectattr('projectId', 'equalto', project_id)
+             | map(attribute='environments') | flatten
+             | map(attribute='postgres', default=[]) | flatten
+             | map(attribute='name') | list }}
+
+    - name: Show existing resources
+      ansible.builtin.debug:
+        msg: >-
+          Existing apps: {{ existing_apps }},
+          Existing postgres: {{ existing_postgres }}
+
+    # ── Step 3: Create applications ─────────────────────────────────────
+    - name: Create applications
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/application.create'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            projectId: '{{ project_id }}'
+            name: '{{ item.app_name }}'
+            appName: '{{ item.app_name }}'
+        status_code: [200, 201]
+        return_content: true
+      loop: '{{ environments }}'
+      loop_control:
+        label: '{{ item.app_name }}'
+      when: item.app_name not in existing_apps
+      register: app_results
+      no_log: true
+
+    # ── Step 4: Configure apps for Docker/GHCR ─────────────────────────
+    - name: Refresh to get app IDs
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/project.all'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      register: projects_final
+      no_log: true
+
+    - name: Extract all application details
+      ansible.builtin.set_fact:
+        all_apps: >-
+          {{ projects_final.json.result.data.json
+             | selectattr('projectId', 'equalto', project_id)
+             | map(attribute='environments') | flatten
+             | map(attribute='applications', default=[]) | flatten
+             | list }}
+
+    - name: Configure Docker source for each app
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/application.update'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            applicationId: '{{ app_item.applicationId }}'
+            sourceType: docker
+            dockerImage: '{{ docker_image }}'
+        status_code: [200, 201]
+      vars:
+        app_item: >-
+          {{ all_apps | selectattr('name', 'equalto', item.app_name) | first }}
+      loop: '{{ environments }}'
+      loop_control:
+        label: '{{ item.app_name }}'
+      when: all_apps | selectattr('name', 'equalto', item.app_name) | list | length > 0
+      no_log: true
+
+    # ── Step 5: Create PostgreSQL services ──────────────────────────────
+    - name: Create PostgreSQL services
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/postgres.create'
+        method: POST
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+          Content-Type: application/json
+        body_format: json
+        body:
+          json:
+            projectId: '{{ project_id }}'
+            name: '{{ item.pg_name }}'
+            appName: '{{ item.pg_name }}'
+            databaseName: '{{ item.db_name }}'
+        status_code: [200, 201]
+        return_content: true
+      loop: '{{ environments }}'
+      loop_control:
+        label: '{{ item.pg_name }}'
+      when: item.pg_name not in existing_postgres
+      register: pg_results
+      no_log: true
+
+    # ── Step 6: Output all IDs ──────────────────────────────────────────
+    - name: Refresh final state
+      ansible.builtin.uri:
+        url: '{{ dokploy_url }}/api/trpc/project.all'
+        method: GET
+        headers:
+          x-api-key: '{{ dokploy_token }}'
+        return_content: true
+      register: final_state
+      no_log: true
+
+    - name: Extract final IDs
+      ansible.builtin.set_fact:
+        final_apps: >-
+          {{ final_state.json.result.data.json
+             | selectattr('projectId', 'equalto', project_id)
+             | map(attribute='environments') | flatten
+             | map(attribute='applications', default=[]) | flatten
+             | list }}
+        final_postgres: >-
+          {{ final_state.json.result.data.json
+             | selectattr('projectId', 'equalto', project_id)
+             | map(attribute='environments') | flatten
+             | map(attribute='postgres', default=[]) | flatten
+             | list }}
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════════════╗
+          ║  Dokploy Setup Complete                                     ║
+          ╠══════════════════════════════════════════════════════════════╣
+          ║  Project: {{ project_name }} ({{ project_id }})
+          ║
+          ║  Applications:
+          {% for app in final_apps %}
+          ║    {{ app.name }}: {{ app.applicationId }}
+          {% endfor %}
+          ║
+          ║  PostgreSQL:
+          {% for pg in final_postgres %}
+          ║    {{ pg.name }}: {{ pg.postgresId }}
+          {% endfor %}
+          ║
+          ║  Update your secrets.yml with these IDs:
+          {% for app in final_apps %}
+          ║    app_id_{{ app.name | replace('api-', '') }}: {{ app.applicationId }}
+          {% endfor %}
+          {% for pg in final_postgres %}
+          ║    postgres_id_{{ pg.name | replace('postgres-', '') }}: {{ pg.postgresId }}
+          {% endfor %}
+          ╚══════════════════════════════════════════════════════════════╝

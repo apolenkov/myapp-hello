@@ -51,10 +51,13 @@ myapp-hello/                          # Turborepo root (npm workspaces)
   infra/
     docker-compose.yml                # Local dev (PostgreSQL, Grafana stack)
     ansible/
+      setup-dokploy-apps.yml          # Create Dokploy project, apps, PostgreSQL services
+      setup-grafana-dashboards.yml    # Provision Grafana dashboards + alert rules
       setup-db-backups.yml            # Dokploy backup setup (S3 destination + configs)
       vars/secrets.yml.example        # Template for secrets (copy to secrets.yml)
   scripts/
     setup-ghcr-dokploy.sh            # Switch Dokploy apps to GHCR docker source
+    setup-github-secrets.sh           # Bulk GitHub secrets setup (interactive/file)
 ```
 
 ### Module Boundaries (enforced by dependency-cruiser)

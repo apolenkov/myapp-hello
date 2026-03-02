@@ -301,54 +301,100 @@ Dashboards, alerts, and retention are managed in the **Grafana Cloud web interfa
 the observability architecture and adding new services, see the
 [Observability Guide](observability.md).
 
-## GitHub Secrets
+## Fresh VPS Setup
 
-The following secrets must be configured in the repository before the pipeline can deploy:
+Complete automated setup for a new VPS — from bare metal to fully deployed application.
 
-| Secret                       | Description                                                                        |
-| ---------------------------- | ---------------------------------------------------------------------------------- |
-| `DOKPLOY_URL`                | Dokploy API base URL (e.g., `http://185.239.48.55:3000`)                           |
-| `DOKPLOY_TOKEN`              | Dokploy API key — generate in Dokploy Settings                                     |
-| `DOKPLOY_SERVICE_ID_PROD`    | Dokploy application ID for the production service                                  |
-| `DOKPLOY_SERVICE_ID_STAGING` | Dokploy application ID for the staging service                                     |
-| `DOKPLOY_SERVICE_ID_DEV`     | Dokploy application ID for the dev service                                         |
-| `CODECOV_TOKEN`              | Codecov upload token — obtain from codecov.io                                      |
-| `GRAFANA_API_TOKEN`          | Grafana API token for deploy annotations (optional)                                |
-| `GRAFANA_URL`                | Grafana base URL for deploy annotations (optional)                                 |
-| `GRAFANA_TEMPO_QUERY_URL`    | Tempo query URL (for trace verification), e.g. `https://<stack>.grafana.net/tempo` |
-| `GRAFANA_TEMPO_USER`         | Grafana Cloud stack user / instance ID for Tempo basic auth                        |
-| `GRAFANA_TEMPO_READ_TOKEN`   | Access Policy token with `traces:read` scope only                                  |
-| `APP_PUBLIC_URL`             | Public app URL for post-deploy /metrics check (optional)                           |
-| `APP_PUBLIC_URL_DEV`         | Dev environment URL for health check (optional)                                    |
-| `APP_PUBLIC_URL_STAGING`     | Staging environment URL for health check (optional)                                |
-| `DOKPLOY_DESTINATION_ID`     | Dokploy S3 backup destination ID (for `db-backup.yml`)                             |
-| `SENTRY_DSN`                 | Sentry error tracking DSN (runtime env var on Dokploy)                             |
-| `SENTRY_AUTH_TOKEN`          | Sentry auth token for CI source maps upload                                        |
-| `YANDEX_S3_ACCESS_KEY`       | Yandex Object Storage access key (for Ansible backup setup)                        |
-| `YANDEX_S3_SECRET_KEY`       | Yandex Object Storage secret key (for Ansible backup setup)                        |
+### Prerequisites
 
-Set secrets via the GitHub web UI (**Settings > Secrets and variables > Actions**) or with the
-`gh` CLI:
+- VPS with Ubuntu 22.04+ and SSH access
+- Grafana Cloud account with API token
+- Yandex Object Storage bucket for backups
+- GitHub repository with CI/CD workflows configured
+
+### Step-by-Step
 
 ```bash
-gh secret set DOKPLOY_URL --body "http://185.239.48.55:3000"
-gh secret set DOKPLOY_TOKEN --body "<your-api-key>"
-gh secret set DOKPLOY_SERVICE_ID_PROD --body "<service-id>"
-gh secret set DOKPLOY_SERVICE_ID_STAGING --body "<service-id>"
-gh secret set DOKPLOY_SERVICE_ID_DEV --body "<service-id>"
-gh secret set CODECOV_TOKEN --body "<codecov-token>"
-gh secret set APP_PUBLIC_URL --body "https://apolenkov.duckdns.org"
-gh secret set APP_PUBLIC_URL_DEV --body "https://dev.apolenkov.duckdns.org"
-gh secret set APP_PUBLIC_URL_STAGING --body "https://staging.apolenkov.duckdns.org"
-gh secret set GRAFANA_TEMPO_QUERY_URL --body "https://<stack>.grafana.net/tempo"
-gh secret set GRAFANA_TEMPO_USER --body "<stack-instance-id>"
-gh secret set GRAFANA_TEMPO_READ_TOKEN --body "<glc-traces-read-token>"
-gh secret set DOKPLOY_DESTINATION_ID --body "<destination-id>"
-gh secret set SENTRY_DSN --body "<sentry-dsn>"
-gh secret set SENTRY_AUTH_TOKEN --body "<sentry-auth-token>"
-gh secret set YANDEX_S3_ACCESS_KEY --body "<yandex-access-key>"
-gh secret set YANDEX_S3_SECRET_KEY --body "<yandex-secret-key>"
+cd infra/ansible
+
+# 1. Provision VPS: Docker, Swarm, Dokploy, firewall, housekeeping
+ansible-playbook provision-vps.yml -i inventory/hosts.yml --ask-vault-pass
+
+# 2. Create Dokploy project, 3 apps (dev/staging/prod), 3 PostgreSQL services
+ansible-playbook setup-dokploy-apps.yml -e @vars/secrets.yml --ask-vault-pass
+
+# 3. Configure environment variables for each Dokploy application
+ansible-playbook setup-environments.yml -e @vars/secrets.yml --ask-vault-pass
+
+# 4. Setup DB backup schedules (S3 destination + daily cron)
+ansible-playbook setup-db-backups.yml -e @vars/secrets.yml --ask-vault-pass
+
+# 5. Deploy observability agents (Promtail + Alloy → Grafana Cloud)
+ansible-playbook disaster-recovery/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
+
+# 6. Provision Grafana dashboards and alert rules
+ansible-playbook setup-grafana-dashboards.yml -e @vars/secrets.yml --ask-vault-pass
+
+# 7. Bulk-set all 23 GitHub secrets (interactive or from env file)
+cd ../../
+./scripts/setup-github-secrets.sh                       # interactive
+./scripts/setup-github-secrets.sh --from-env .env.secrets  # from file
+./scripts/setup-github-secrets.sh --dry-run              # preview only
 ```
+
+After step 7, push to `main` to trigger the full CI/CD pipeline (build → dev → staging → prod).
+
+### Ansible Playbook Reference
+
+| Playbook                       | Purpose                                           | Idempotent |
+| ------------------------------ | ------------------------------------------------- | ---------- |
+| `provision-vps.yml`            | Base VPS setup (Docker, Swarm, Dokploy, firewall) | Yes        |
+| `setup-dokploy-apps.yml`       | Create Dokploy project, apps, PostgreSQL services | Yes        |
+| `setup-environments.yml`       | Configure app environment variables               | Yes        |
+| `setup-db-backups.yml`         | S3 backup destination + backup schedules          | Yes        |
+| `setup-grafana-dashboards.yml` | Grafana dashboards + alert rules provisioning     | Yes        |
+| `setup-vps-housekeeping.yml`   | Docker cleanup cron, log rotation                 | Yes        |
+| `restore-db.yml`               | Restore PostgreSQL from S3 backup                 | —          |
+
+All playbooks use `hosts: localhost` with `connection: local` (API calls from your machine, not SSH
+to VPS). Secrets are read from `vars/secrets.yml` (Ansible Vault encrypted).
+
+## GitHub Secrets
+
+The following secrets must be configured in the repository before the pipeline can deploy.
+
+**Bulk setup** — use the interactive script instead of setting secrets one by one:
+
+```bash
+./scripts/setup-github-secrets.sh              # interactive prompts
+./scripts/setup-github-secrets.sh --from-env .env.secrets  # read from KEY=VALUE file
+./scripts/setup-github-secrets.sh --dry-run     # preview what would be set
+```
+
+| Secret                         | Description                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| `DOKPLOY_URL`                  | Dokploy API base URL (e.g., `http://185.239.48.55:3000`)                           |
+| `DOKPLOY_TOKEN`                | Dokploy API key — generate in Dokploy Settings                                     |
+| `DOKPLOY_SERVICE_ID_PROD`      | Dokploy application ID for the production service                                  |
+| `DOKPLOY_SERVICE_ID_STAGING`   | Dokploy application ID for the staging service                                     |
+| `DOKPLOY_SERVICE_ID_DEV`       | Dokploy application ID for the dev service                                         |
+| `DOKPLOY_DESTINATION_ID`       | Dokploy S3 backup destination ID (for `db-backup.yml`)                             |
+| `APP_PUBLIC_URL`               | Public app URL for post-deploy /metrics check                                      |
+| `APP_PUBLIC_URL_DEV`           | Dev environment URL for health check                                               |
+| `APP_PUBLIC_URL_STAGING`       | Staging environment URL for health check                                           |
+| `SENTRY_DSN`                   | Sentry error tracking DSN (runtime env var on Dokploy)                             |
+| `SENTRY_AUTH_TOKEN`            | Sentry auth token for CI source maps upload                                        |
+| `CODECOV_TOKEN`                | Codecov upload token — obtain from codecov.io                                      |
+| `GRAFANA_URL`                  | Grafana base URL for deploy annotations                                            |
+| `GRAFANA_API_TOKEN`            | Grafana API token for deploy annotations                                           |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`  | Grafana Cloud OTLP gateway URL                                                     |
+| `OTEL_EXPORTER_OTLP_HEADERS`   | OTLP auth header (`Authorization=Basic <base64>`)                                  |
+| `GRAFANA_TEMPO_QUERY_URL`      | Tempo query URL (for trace verification), e.g. `https://<stack>.grafana.net/tempo` |
+| `GRAFANA_TEMPO_USER`           | Grafana Cloud stack user / instance ID for Tempo basic auth                        |
+| `GRAFANA_TEMPO_READ_TOKEN`     | Access Policy token with `traces:read` scope only                                  |
+| `GRAFANA_TEMPO_DATASOURCE_UID` | Tempo datasource UID in Grafana                                                    |
+| `YANDEX_S3_ACCESS_KEY`         | Yandex Object Storage access key (for Ansible backup setup)                        |
+| `YANDEX_S3_SECRET_KEY`         | Yandex Object Storage secret key (for Ansible backup setup)                        |
 
 ## See Also
 
