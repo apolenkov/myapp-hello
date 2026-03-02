@@ -3,9 +3,10 @@ import { ValidationPipe, VersioningType } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Test } from '@nestjs/testing'
 
+import { prometheusExporter } from '../../instrumentation'
+
 import { AppModule } from '../../app.module'
 import { UnauthorizedExceptionFilter } from '../../auth/unauthorized-exception.filter'
-import { prometheusExporter } from '../../instrumentation'
 
 export const TEST_JWT_SECRET = 'test-secret-for-unit-tests'
 
