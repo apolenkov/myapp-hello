@@ -87,10 +87,10 @@ format.
 
 **Custom metrics:**
 
-| Metric                                 | Type      | Labels                                          |
-| -------------------------------------- | --------- | ----------------------------------------------- |
-| `http_server_request_duration_seconds` | Histogram | `http_method`, `http_route`, `http_status_code` |
-| `http_server_request_total_total`      | Counter   | `http_method`, `http_route`, `http_status_code` |
+| Metric                  | Type      | Labels                                          |
+| ----------------------- | --------- | ----------------------------------------------- |
+| `http_request_duration` | Histogram | `http_method`, `http_route`, `http_status_code` |
+| `http_requests`         | Counter   | `http_method`, `http_route`, `http_status_code` |
 
 **Auto-instrumentation metrics** (via OTel auto-instrumentations):
 

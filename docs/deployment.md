@@ -49,7 +49,8 @@ flowchart TD
 | YAML lint               | `yamllint .github/`    | Blocks merge                             |
 | Architecture check      | `turbo run check:arch` | Blocks merge                             |
 | Tests                   | `turbo run test`       | Blocks merge                             |
-| Coverage upload         | `codecov-action@v5`    | Non-blocking (`fail_ci_if_error: false`) |
+| Coverage upload         | `codecov-action@v5`    | Blocks merge (`fail_ci_if_error: true`)  |
+| Sentry source maps      | `@sentry/cli`          | Blocks merge (runs after quality + test) |
 
 ### deploy.yml Steps
 

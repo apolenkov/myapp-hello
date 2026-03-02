@@ -63,11 +63,6 @@ Add end-to-end tests against a running instance:
 
 Currently handled by Traefik. If API becomes public-facing, add `enableCors()` in `main.ts`.
 
-### Changelog
-
-`@semantic-release/changelog` plugin could generate CHANGELOG.md automatically. Currently only
-GitHub Releases are created.
-
 ### Load Testing
 
 - k6 or autocannon scripts for `/health`, `GET /`, protected routes

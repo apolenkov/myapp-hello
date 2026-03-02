@@ -42,4 +42,18 @@ describe('GET /metrics', () => {
 
     expect(res.text).toContain('http_requests')
   })
+
+  it('should include route label for /v1 requests', async () => {
+    await request(ctx.app.getHttpServer()).get('/v1')
+    const res = await request(ctx.app.getHttpServer()).get('/metrics')
+
+    expect(res.text).toMatch(/http_request_duration[^}]*route="\/v1"/)
+  })
+
+  it('should NOT record metrics for /health (IGNORED_PATHS exclusion)', async () => {
+    await request(ctx.app.getHttpServer()).get('/health')
+    const res = await request(ctx.app.getHttpServer()).get('/metrics')
+
+    expect(res.text).not.toMatch(/http_request_duration[^}]*route="\/health"/)
+  })
 })

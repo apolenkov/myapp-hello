@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { validate } from './env.validation'
 
+const TTL_ERROR = 'THROTTLE_TTL must be a positive integer'
+
 describe('env validation', () => {
   describe('development/test mode', () => {
     it('should pass with no env vars', () => {
@@ -99,6 +101,44 @@ describe('env validation', () => {
       const result = validate({ PORT: '3001' })
 
       expect(result).toHaveProperty('PORT', '3001')
+    })
+  })
+
+  describe('throttle validation', () => {
+    it('should fail when THROTTLE_TTL is not a number', () => {
+      expect(() => validate({ THROTTLE_TTL: 'abc' })).toThrow(TTL_ERROR)
+    })
+
+    it('should fail when THROTTLE_TTL is zero', () => {
+      expect(() => validate({ THROTTLE_TTL: '0' })).toThrow(TTL_ERROR)
+    })
+
+    it('should fail when THROTTLE_TTL is negative', () => {
+      expect(() => validate({ THROTTLE_TTL: '-1' })).toThrow(TTL_ERROR)
+    })
+
+    it('should fail when THROTTLE_LIMIT is not a number', () => {
+      expect(() => validate({ THROTTLE_LIMIT: 'abc' })).toThrow(
+        'THROTTLE_LIMIT must be a positive integer',
+      )
+    })
+
+    it('should fail when THROTTLE_LIMIT is zero', () => {
+      expect(() => validate({ THROTTLE_LIMIT: '0' })).toThrow(
+        'THROTTLE_LIMIT must be a positive integer',
+      )
+    })
+
+    it('should pass with valid THROTTLE_TTL and return it as a number', () => {
+      const result = validate({ THROTTLE_TTL: '30000' })
+
+      expect(result.THROTTLE_TTL).toBe(30000)
+    })
+
+    it('should pass with valid THROTTLE_LIMIT and return it as a number', () => {
+      const result = validate({ THROTTLE_LIMIT: '50' })
+
+      expect(result.THROTTLE_LIMIT).toBe(50)
     })
   })
 

@@ -1,17 +1,24 @@
 - name: Smoke test after restore
   hosts: vps
+  vars:
+    app_urls:
+      - '{{ app_url_prod | default("") }}'
+      - '{{ app_url_staging | default("") }}'
+      - '{{ app_url_dev | default("") }}'
   tasks:
-    - name: Wait for apps to start
+    - name: Wait for Traefik to be ready
       ansible.builtin.wait_for:
-        port: '{{ item }}'
+        port: 80
         host: localhost
         timeout: 60
-      loop: [3011, 3012, 3013]
 
-    - name: Check /health endpoints
+    - name: Check /health endpoints via public URLs
       ansible.builtin.uri:
-        url: 'http://localhost:{{ item }}/health'
+        url: '{{ item }}/health'
         status_code: 200
-      loop: [3011, 3012, 3013]
+      loop: '{{ app_urls | select("ne", "") | list }}'
       retries: 3
       delay: 5
+      register: health_result
+      until: health_result.status == 200
+      when: item != ''

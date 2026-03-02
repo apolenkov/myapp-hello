@@ -8,9 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { AppModule } from '../app.module'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
-import { createMockConfigService, testConfigService } from './test-utils'
+import { createMockConfigService, TEST_JWT_SECRET, testConfigService } from './test-utils'
 
-const TEST_SECRET = 'test-secret-for-unit-tests'
 const PROTECTED_ROUTE = '/v1/protected-test'
 const INVALID_TOKEN = 'Invalid token'
 
@@ -71,7 +70,7 @@ describe('Auth Guard', () => {
 
   it('should allow access to @Public() routes with valid token', async () => {
     const jwtService = new JwtService({})
-    const token = jwtService.sign({ sub: 'user-123', role: 'admin' }, { secret: TEST_SECRET })
+    const token = jwtService.sign({ sub: 'user-123', role: 'admin' }, { secret: TEST_JWT_SECRET })
 
     const res = await request(ctx.app.getHttpServer())
       .get('/health')
@@ -91,7 +90,7 @@ describe('Auth Guard', () => {
 
   it('should return 200 for valid token on protected route', async () => {
     const jwtService = new JwtService({})
-    const token = jwtService.sign({ sub: 'user-123', role: 'admin' }, { secret: TEST_SECRET })
+    const token = jwtService.sign({ sub: 'user-123', role: 'admin' }, { secret: TEST_JWT_SECRET })
 
     const res = await request(ctx.app.getHttpServer())
       .get(PROTECTED_ROUTE)
@@ -105,7 +104,7 @@ describe('Auth Guard', () => {
     const jwtService = new JwtService({})
     const token = jwtService.sign(
       { sub: 'user-123', role: 'admin' },
-      { secret: TEST_SECRET, expiresIn: '0s' },
+      { secret: TEST_JWT_SECRET, expiresIn: '0s' },
     )
 
     const res = await request(ctx.app.getHttpServer())
@@ -118,7 +117,10 @@ describe('Auth Guard', () => {
 
   it('should return 401 for token signed with wrong algorithm', async () => {
     const jwtService = new JwtService({})
-    const token = jwtService.sign({ sub: 'user-123' }, { secret: TEST_SECRET, algorithm: 'HS384' })
+    const token = jwtService.sign(
+      { sub: 'user-123' },
+      { secret: TEST_JWT_SECRET, algorithm: 'HS384' },
+    )
 
     const res = await request(ctx.app.getHttpServer())
       .get(PROTECTED_ROUTE)

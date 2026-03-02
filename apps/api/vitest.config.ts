@@ -17,7 +17,6 @@ export default defineConfig({
       exclude: [
         'src/main.ts',
         'src/instrumentation.ts',
-        'src/db/migrate.ts',
         'src/__tests__/**',
         'src/**/*.module.ts',
         '**/*.d.ts',

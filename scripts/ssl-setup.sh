@@ -43,10 +43,14 @@ fi
 
 echo ""
 echo "=== Step 2: Register domain in Dokploy ==="
+BODY=$(jq -nc \
+  --arg id "$DOKPLOY_SERVICE_ID_PROD" \
+  --arg host "$DOMAIN" \
+  '{"json":{"applicationId":$id,"host":$host,"https":true,"port":3001,"certificateType":"letsencrypt"}}')
 HTTP_STATUS=$(curl -sf -o /dev/null -w "%{http_code}" -X POST "${DOKPLOY_URL}/api/trpc/domain.create" \
   -H "x-api-key: ${DOKPLOY_API_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d "{\"json\":{\"applicationId\":\"${DOKPLOY_SERVICE_ID_PROD}\",\"host\":\"${DOMAIN}\",\"https\":true,\"port\":3001,\"certificateType\":\"letsencrypt\"}}" \
+  -d "$BODY" \
   || true)
 
 if [ "$HTTP_STATUS" = "200" ]; then

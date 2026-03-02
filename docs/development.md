@@ -8,7 +8,7 @@ database migration workflow, and how to run tests.
 | Requirement    | Minimum version           | Notes                                 |
 | -------------- | ------------------------- | ------------------------------------- |
 | Node.js        | 22                        | Use `nvm` or `fnm` to manage versions |
-| npm            | 10                        | Bundled with Node.js 22               |
+| npm            | 11                        | Bundled with Node.js 22               |
 | Docker         | 24                        | Required for local PostgreSQL         |
 | Docker Compose | v2 (`compose` subcommand) | Bundled with Docker Desktop           |
 
@@ -129,9 +129,10 @@ The next application startup will apply it automatically.
 
 ### Current Migrations
 
-| File              | Description                                            |
-| ----------------- | ------------------------------------------------------ |
-| `001_initial.sql` | Creates `health_checks` table (id, checked_at, status) |
+| File                      | Description                                                                 |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `001_initial.sql`         | Creates `health_checks` table (id, checked_at, status)                      |
+| `002_add_constraints.sql` | Adds `CHECK` constraint on `status` column and index on `checked_at` column |
 
 ## Environment Variables
 
@@ -211,10 +212,9 @@ The project enforces several quality layers:
 Some packages cannot be updated to their absolute latest versions due to peer dependency conflicts.
 Check these before running bulk updates:
 
-| Package    | Pinned    | Blocker                                             |
-| ---------- | --------- | --------------------------------------------------- |
-| `eslint`   | `^9.39.3` | `eslint-plugin-import-x` requires `^8.57 \|\| ^9.0` |
-| `@swc/cli` | `^0.7.10` | `@nestjs/cli` requires `^0.7.x`                     |
+| Package  | Pinned    | Blocker                                             |
+| -------- | --------- | --------------------------------------------------- |
+| `eslint` | `^9.39.3` | `eslint-plugin-import-x` requires `^8.57 \|\| ^9.0` |
 
 Additional notes:
 

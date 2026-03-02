@@ -76,12 +76,21 @@
         port: '443'
         proto: tcp
 
-    - name: Allow Dokploy management (3000/tcp)
+    - name: Allow Dokploy management (3000/tcp) from admin IP only
       community.general.ufw:
         rule: allow
         port: '{{ dokploy_port }}'
         proto: tcp
-        comment: 'Dokploy UI — consider restricting to admin IPs via src parameter'
+        src: '{{ admin_ip }}'
+      when: admin_ip is defined
+
+    - name: Warn if admin_ip is not set (Dokploy port 3000 will be blocked)
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: admin_ip is not defined. Dokploy UI port 3000 will NOT be opened in UFW.
+          To access Dokploy, use an SSH tunnel: ssh -L 3000:localhost:3000 root@{{ vps_host | default(ansible_host) }}
+          Then set admin_ip in secrets.yml and re-run this playbook to open the port.
+      when: admin_ip is not defined
 
     - name: Enable firewall
       community.general.ufw:

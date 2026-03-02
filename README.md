@@ -31,13 +31,12 @@ flowchart TD
         staging --> pg_staging[(PostgreSQL staging)]
         devenv --> pg_dev[(PostgreSQL dev)]
 
-        subgraph obs[Observability Stack]
-            grafana[Grafana\n:3100]
-            prometheus[Prometheus] -->|scrape /metrics| prod
-            promtail[Promtail] -->|push logs| loki[Loki]
-            prod -->|OTLP traces| tempo[Tempo]
+        subgraph obs[Observability Agents]
+            promtail[Promtail] -->|push logs\nbasic auth| gc_loki[Grafana Cloud\nLoki]
+            alloy[Grafana Alloy] -->|scrape :3001/metrics| prod
+            alloy -->|remote write\nbasic auth| gc_prom[Grafana Cloud\nPrometheus]
         end
-        grafana --> prometheus & loki & tempo
+        prod -->|OTLP HTTP\nenv var auth| gc_tempo[Grafana Cloud\nTempo]
     end
 
     traefik -->|ACME HTTP-01| letsencrypt[Let's Encrypt]
@@ -117,7 +116,7 @@ PostgreSQL instance and independent configuration.
 | Runtime           | Node.js 22 (LTS)                                     |
 | Framework         | NestJS 11 (Express adapter)                          |
 | Language          | TypeScript 5 (strict mode)                           |
-| Database          | PostgreSQL 18 via `node-postgres`                    |
+| Database          | PostgreSQL 17 via `node-postgres`                    |
 | Logging           | nestjs-pino (structured JSON via Pino)               |
 | Observability     | OpenTelemetry + Prometheus + Loki + Tempo + Grafana  |
 | Auth              | @nestjs/jwt + global JwtAuthGuard                    |
