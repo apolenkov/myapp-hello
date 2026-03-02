@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { validate } from './env.validation'
+import { validate } from '../config/env.validation'
 
 const TTL_ERROR = 'THROTTLE_TTL must be a positive integer'
 

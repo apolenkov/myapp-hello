@@ -10,7 +10,7 @@ import { AppModule } from '../app.module'
 import { ERROR_INVALID_TOKEN, ERROR_UNAUTHORIZED } from '../auth/auth.constants'
 import { JWT_AUDIENCE, JWT_ISSUER } from '../auth/jwt.constants'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
-import { createMockConfigService, TEST_JWT_SECRET, testConfigService } from './test-utils'
+import { createMockConfigService, TEST_JWT_SECRET, testConfigService } from './helpers/test-utils'
 
 const PROTECTED_ROUTE = '/v1/protected-test'
 

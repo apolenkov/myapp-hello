@@ -59,21 +59,21 @@
     # ── Copy configuration files ─────────────────────────────────────
     - name: Copy docker-compose file
       ansible.builtin.copy:
-        src: '{{ playbook_dir }}/../../observability/docker-compose.observability.yml'
+        src: '{{ playbook_dir }}/../observability/docker-compose.observability.yml'
         dest: '{{ obs_dir }}/docker-compose.observability.yml'
         mode: '0644'
       register: compose_changed
 
     - name: Copy Promtail config
       ansible.builtin.copy:
-        src: '{{ playbook_dir }}/../../observability/promtail/promtail-config.yml'
+        src: '{{ playbook_dir }}/../observability/promtail/promtail-config.yml'
         dest: '{{ obs_dir }}/promtail/promtail-config.yml'
         mode: '0644'
       register: promtail_changed
 
     - name: Copy Alloy config
       ansible.builtin.copy:
-        src: '{{ playbook_dir }}/../../observability/alloy/config.alloy'
+        src: '{{ playbook_dir }}/../observability/alloy/config.alloy'
         dest: '{{ obs_dir }}/alloy/config.alloy'
         mode: '0644'
       register: alloy_changed

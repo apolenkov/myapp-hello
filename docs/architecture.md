@@ -224,6 +224,21 @@ eliminates the need for local Grafana, Prometheus, Loki, and Tempo instances, re
 resource footprint from ~0.85 CPU / 896 MB to ~0.3 CPU / 384 MB. Dashboards, alerts, and data
 retention are managed entirely in Grafana Cloud.
 
+## Glossary
+
+| Term                     | Description                                           |
+| ------------------------ | ----------------------------------------------------- |
+| **Turborepo**            | Build system for monorepos, caches results            |
+| **NestJS**               | Node.js framework (modules, DI, decorators)           |
+| **Dokploy**              | Self-hosted PaaS (Heroku alternative) on Docker Swarm |
+| **GHCR**                 | GitHub Container Registry — Docker image storage      |
+| **Artifact Promotion**   | A single image is deployed to all environments        |
+| **Traefik**              | Reverse proxy with automatic Let's Encrypt            |
+| **OpenTelemetry (OTel)** | Observability standard (metrics, traces, logs)        |
+| **Ansible Vault**        | Encryption for files containing secrets               |
+| **Advisory Lock**        | PostgreSQL mechanism to prevent parallel migrations   |
+| **Semantic Release**     | Automatic versioning based on conventional commits    |
+
 ## See Also
 
 - [Observability Guide](observability.md) — Stack overview, dashboards, alerts, adding new services

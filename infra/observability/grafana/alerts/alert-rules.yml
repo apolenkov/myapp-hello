@@ -1,7 +1,7 @@
 # Grafana Cloud Alert Rules for myapp-hello
 #
 # These rules are designed for Grafana Cloud's Alerting API.
-# Apply via scripts/setup-grafana-alerts.sh or import manually in Grafana UI.
+# Apply via: ansible-playbook infra/ansible/setup-grafana-dashboards.yml
 #
 # Metric names (from apps/api/src/metrics/instruments.ts):
 #   - http_request_duration (histogram, seconds)

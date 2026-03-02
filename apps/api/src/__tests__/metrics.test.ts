@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { createBaseTestApp } from './test-utils'
+import { createBaseTestApp } from './helpers/test-utils'
 
 const ctx = {} as { app: INestApplication }
 

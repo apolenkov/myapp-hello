@@ -65,7 +65,7 @@ flowchart TD
 
 **Non-JSON logs** (e.g., PostgreSQL) are stored as-is without pipeline parsing.
 
-**Config:** `observability/promtail/promtail-config.yml`
+**Config:** `infra/observability/promtail/promtail-config.yml`
 
 ### Metrics (Grafana Alloy to Grafana Cloud Prometheus)
 
@@ -99,7 +99,7 @@ format.
 - PostgreSQL query timing
 - `target_info` with `service_name` and `service_version` labels
 
-**Config:** `observability/alloy/config.alloy`
+**Config:** `infra/observability/alloy/config.alloy`
 
 ### Traces (OTel SDK to Grafana Cloud Tempo)
 
@@ -210,7 +210,7 @@ Find `GRAFANA_ORG_ID` and `LOKI_USER_ID` in **Grafana Cloud > My Account > Stack
 2. Deploy the observability stack:
 
 ```bash
-cd observability
+cd infra/observability
 GRAFANA_API_TOKEN=<token> GRAFANA_ORG_ID=<org-id> LOKI_USER_ID=<loki-id> \
   docker compose -f docker-compose.observability.yml up -d
 ```
@@ -233,11 +233,11 @@ To instrument a new service for metrics collection:
 
 ### Configuration Files
 
-| File                                             | Purpose                        |
-| ------------------------------------------------ | ------------------------------ |
-| `observability/docker-compose.observability.yml` | Docker Compose for 2 agents    |
-| `observability/promtail/promtail-config.yml`     | Docker SD + Pino JSON pipeline |
-| `observability/alloy/config.alloy`               | Alloy scrape + remote_write    |
+| File                                                   | Purpose                        |
+| ------------------------------------------------------ | ------------------------------ |
+| `infra/observability/docker-compose.observability.yml` | Docker Compose for 2 agents    |
+| `infra/observability/promtail/promtail-config.yml`     | Docker SD + Pino JSON pipeline |
+| `infra/observability/alloy/config.alloy`               | Alloy scrape + remote_write    |
 
 ### Dashboards, Alerts, and Retention
 

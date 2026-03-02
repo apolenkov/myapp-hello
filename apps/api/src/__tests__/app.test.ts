@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../app.module'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
 import { DB_STATUS_NOT_CONFIGURED } from '../database/database.constants'
-import { createBaseTestApp, testConfigService } from './test-utils'
+import { createBaseTestApp, testConfigService } from './helpers/test-utils'
 
 const ctx = {} as { app: INestApplication }
 

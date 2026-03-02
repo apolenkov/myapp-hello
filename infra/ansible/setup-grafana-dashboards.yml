@@ -24,8 +24,8 @@
   vars:
     folder_title: myapp-hello
     folder_uid: myapp-hello
-    dashboard_dir: '{{ playbook_dir }}/../../observability/grafana/dashboards'
-    alerts_file: '{{ playbook_dir }}/../../observability/grafana/alerts/alert-rules.yml'
+    dashboard_dir: '{{ playbook_dir }}/../observability/grafana/dashboards'
+    alerts_file: '{{ playbook_dir }}/../observability/grafana/alerts/alert-rules.yml'
 
   tasks:
     # ── Step 1: Create or find folder ───────────────────────────────────

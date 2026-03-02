@@ -55,9 +55,14 @@ myapp-hello/                          # Turborepo root (npm workspaces)
       setup-grafana-dashboards.yml    # Provision Grafana dashboards + alert rules
       setup-db-backups.yml            # Dokploy backup setup (S3 destination + configs)
       vars/secrets.yml.example        # Template for secrets (copy to secrets.yml)
+    observability/                    # Grafana Cloud telemetry agents
+      alloy/config.alloy              # Grafana Alloy (metrics scraper)
+      grafana/dashboards/             # Dashboard JSON models (4 dashboards)
+      grafana/alerts/                 # Alert rules YAML
+      promtail/promtail-config.yml    # Promtail (log shipper)
   scripts/
-    setup-ghcr-dokploy.sh            # Switch Dokploy apps to GHCR docker source
     setup-github-secrets.sh           # Bulk GitHub secrets setup (interactive/file)
+    verify-grafana-traces.sh          # Post-deploy trace verification (used in CI)
 ```
 
 ### Module Boundaries (enforced by dependency-cruiser)

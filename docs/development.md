@@ -223,6 +223,26 @@ Additional notes:
 - `vitest` 4 is ESM-only — add `include: ['src/**/*.test.ts']` to vitest config to prevent
   CJS `dist/` files from being picked up
 
+## Troubleshooting
+
+### Tests Failing Locally
+
+```bash
+npm run dev:db              # Ensure PostgreSQL is running
+npm test -- --reporter=verbose
+npm run test:coverage       # Check coverage thresholds
+```
+
+### Pre-commit Hook Broke the Commit
+
+Hooks modify files in place. After a failed commit:
+
+```bash
+git diff                    # See what the hook changed
+git add .                   # Stage the fixes
+git commit -m "fix: apply formatting from pre-commit hook"  # NEW commit, never amend
+```
+
 ## See Also
 
 - [Architecture](architecture.md) — C4 diagrams and design decisions

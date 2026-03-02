@@ -11,7 +11,7 @@ import { JWT_AUDIENCE, JWT_ISSUER } from '../auth/jwt.constants'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
 import { DB_STATUS_CONNECTED } from '../database/database.constants'
 import { DatabaseService } from '../database/database.service'
-import { TEST_JWT_SECRET, testConfigService } from './test-utils'
+import { TEST_JWT_SECRET, testConfigService } from './helpers/test-utils'
 
 const ITEMS_URL = '/v1/items'
 const UPDATED_TITLE = 'Updated title'

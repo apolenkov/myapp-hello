@@ -232,7 +232,7 @@ cd infra/ansible
 ansible-playbook disaster-recovery/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
 ```
 
-This copies all configs from `observability/` to `/opt/observability` on the VPS, creates a `.env`
+This copies all configs from `infra/observability/` to `/opt/observability` on the VPS, creates a `.env`
 file with Grafana Cloud credentials, and starts the 2 agent services via Docker Compose.
 
 ### Full Stack Deploy (Including Observability)
@@ -243,7 +243,7 @@ ansible-playbook disaster-recovery/site.yml -i inventory/hosts.yml --ask-vault-p
 
 ### Updating Configs
 
-After modifying any file in `observability/`, redeploy the stack:
+After modifying any file in `infra/observability/`, redeploy the stack:
 
 ```bash
 ansible-playbook disaster-recovery/07-observability.yml -i inventory/hosts.yml --ask-vault-pass
@@ -275,8 +275,8 @@ Run this quick checklist after each deploy and at least once daily on the VPS.
 7. **Routing/TLS** — verify domains resolve and TLS cert expiration is within safe window.
 8. **Observability** — confirm `/metrics` is reachable and recent traces appear in Grafana.
 
-For full step-by-step ops detail, use `docs/guide.md` (manual checks) and
-`infra/ansible/setup-vps-housekeeping.yml` + `infra/ansible/setup-db-backups.yml`.
+See the [Production Verification Checklist](#production-verification-checklist) below for manual
+checks, and `infra/ansible/setup-vps-housekeeping.yml` + `infra/ansible/setup-db-backups.yml`.
 
 ### Required VPS Environment Variables
 
@@ -395,6 +395,66 @@ The following secrets must be configured in the repository before the pipeline c
 | `GRAFANA_TEMPO_DATASOURCE_UID` | Tempo datasource UID in Grafana                                                    |
 | `YANDEX_S3_ACCESS_KEY`         | Yandex Object Storage access key (for Ansible backup setup)                        |
 | `YANDEX_S3_SECRET_KEY`         | Yandex Object Storage secret key (for Ansible backup setup)                        |
+
+## Production Verification Checklist
+
+<!-- prettier-ignore -->
+```bash
+# 1. Health check on all environments
+curl -s https://apolenkov.duckdns.org/health | jq .
+curl -s https://staging.apolenkov.duckdns.org/health | jq .
+curl -s https://dev.apolenkov.duckdns.org/health | jq .
+
+# 2. DB status
+curl -s https://apolenkov.duckdns.org/v1 | jq .db
+
+# 3. Metrics endpoint
+curl -s https://apolenkov.duckdns.org/metrics | head -20
+
+# 4. Swagger UI
+open https://apolenkov.duckdns.org/docs
+
+# 5. TLS certificate
+echo | openssl s_client -connect apolenkov.duckdns.org:443 2>/dev/null \
+  | openssl x509 -noout -dates
+
+# 6. CI/CD + Uptime + Backups
+gh run list --limit=5
+gh run list --workflow=uptime.yml --limit=3
+gh run list --workflow=db-backup.yml --limit=3
+
+# 7. Docker images in GHCR
+gh api user/packages/container/myapp-api/versions \
+  --jq '.[0:3] | .[] | {id, tags: .metadata.container.tags}'
+```
+
+## Troubleshooting
+
+### Deployment Fails (health check timeout)
+
+```bash
+gh run view <run-id> --log-failed
+ssh root@185.239.48.55 "docker ps --filter name=myapp"
+ssh root@185.239.48.55 \
+  "docker logs \$(docker ps --filter name=myapp-hello-prod -q) --tail 50"
+```
+
+### DB Not Connecting (`db: "not configured"`)
+
+1. Verify `DATABASE_URL` is set in Dokploy environment variables
+2. Check PostgreSQL container: `docker ps --filter name=postgres`
+3. Test connection: `docker exec <pg-container> psql -U prod_user -d myapp_prod -c 'SELECT 1'`
+
+### 502 Bad Gateway
+
+Traefik cannot resolve the Docker Swarm service name. Check:
+
+```bash
+ssh root@185.239.48.55 "docker service ls"
+ssh root@185.239.48.55 "cat /etc/dokploy/traefik/dynamic/*.yml"
+```
+
+See Infrastructure Gotchas in CLAUDE.md — use Swarm service names, not IPs.
 
 ## See Also
 
