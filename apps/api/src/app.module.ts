@@ -10,6 +10,7 @@ import { AppService } from './app.service'
 import { AuthModule } from './auth/auth.module'
 import { validate } from './config/env.validation'
 import { DatabaseModule } from './database/database.module'
+import { ItemsModule } from './items/items.module'
 import { MetricsModule } from './metrics/metrics.module'
 
 @Module({
@@ -44,6 +45,7 @@ import { MetricsModule } from './metrics/metrics.module'
     DatabaseModule,
     AuthModule,
     MetricsModule,
+    ItemsModule,
   ],
   controllers: [AppController],
   providers: [

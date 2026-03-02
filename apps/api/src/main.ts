@@ -1,6 +1,6 @@
 import 'reflect-metadata'
 
-import { Logger, VersioningType } from '@nestjs/common'
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { HttpAdapterHost, NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
@@ -25,6 +25,14 @@ async function bootstrap(): Promise<void> {
   expressApp.set('trust proxy', 1)
   app.use(helmet())
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  )
   app.enableShutdownHooks()
   const { httpAdapter } = app.get(HttpAdapterHost)
   app.useGlobalFilters(new SentryGlobalFilter(httpAdapter), new UnauthorizedExceptionFilter())

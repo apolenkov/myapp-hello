@@ -35,6 +35,8 @@
     "@opentelemetry/semantic-conventions": "^1.40.0",
     "@sentry/nestjs": "^10.39.0",
     "@sentry/opentelemetry": "^10.39.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
     "helmet": "^8.1.0",
     "nestjs-pino": "^4.6.0",
     "pg": "^8.18.0",

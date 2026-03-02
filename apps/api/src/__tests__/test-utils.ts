@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common'
-import { VersioningType } from '@nestjs/common'
+import { ValidationPipe, VersioningType } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Test } from '@nestjs/testing'
 
@@ -49,6 +49,14 @@ export async function createBaseTestApp(): Promise<INestApplication> {
   const app = moduleRef.createNestApplication()
 
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  )
 
   const metricsHandler = prometheusExporter.getMetricsRequestHandler.bind(prometheusExporter)
   app.getHttpAdapter().get('/metrics', metricsHandler)

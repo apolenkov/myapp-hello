@@ -157,6 +157,122 @@ API clients such as Insomnia or Postman.
 curl https://apolenkov.duckdns.org/openapi.json | jq .info
 ```
 
+### Items CRUD — /v1/items
+
+A complete CRUD resource demonstrating the recommended pattern for building API endpoints. Items are
+scoped to the authenticated user — each user can only access their own items.
+
+**Auth required:** Yes (Bearer JWT token)
+
+**Rate limited:** Yes (100 req/min per IP)
+
+#### POST /v1/items — Create
+
+```bash
+curl -X POST https://apolenkov.duckdns.org/v1/items \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "My first item", "description": "Optional description"}'
+```
+
+**Request body:**
+
+| Field       | Type   | Required | Constraints    |
+| ----------- | ------ | -------- | -------------- |
+| title       | string | Yes      | 1-255 chars    |
+| description | string | No       | max 2000 chars |
+
+**Response — 201 Created**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "user-123",
+  "title": "My first item",
+  "description": "Optional description",
+  "status": "active",
+  "createdAt": "2026-03-02T10:00:00.000Z",
+  "updatedAt": "2026-03-02T10:00:00.000Z"
+}
+```
+
+#### GET /v1/items — List (paginated)
+
+```bash
+curl https://apolenkov.duckdns.org/v1/items?page=1&limit=20 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Query parameters:**
+
+| Param | Default | Range |
+| ----- | ------- | ----- |
+| page  | 1       | >= 1  |
+| limit | 20      | 1-100 |
+
+**Response — 200 OK**
+
+```json
+{
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "userId": "user-123",
+      "title": "My first item",
+      "description": "Optional description",
+      "status": "active",
+      "createdAt": "2026-03-02T10:00:00.000Z",
+      "updatedAt": "2026-03-02T10:00:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20
+}
+```
+
+#### GET /v1/items/:id — Get one
+
+```bash
+curl https://apolenkov.duckdns.org/v1/items/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:** 200 with item object, or 404 if not found.
+
+#### PATCH /v1/items/:id — Update
+
+```bash
+curl -X PATCH https://apolenkov.duckdns.org/v1/items/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Updated title", "status": "archived"}'
+```
+
+**Request body (all fields optional):**
+
+| Field       | Type   | Constraints                |
+| ----------- | ------ | -------------------------- |
+| title       | string | 1-255 chars                |
+| description | string | max 2000 chars             |
+| status      | enum   | `"active"` or `"archived"` |
+
+**Note:** Setting status to `"deleted"` via PATCH is not allowed — use DELETE instead.
+
+**Response:** 200 with updated item, or 404 if not found.
+
+#### DELETE /v1/items/:id — Soft delete
+
+```bash
+curl -X DELETE https://apolenkov.duckdns.org/v1/items/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:** 200 with deleted item (status = "deleted"), or 404 if not found.
+
+Items are soft-deleted — the record stays in the database with `status = 'deleted'` but is excluded
+from all queries. This allows recovery and audit trails.
+
 ## Authentication
 
 The application uses a global `JwtAuthGuard` (`src/auth/auth.guard.ts`) that validates JSON Web

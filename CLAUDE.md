@@ -40,6 +40,7 @@ myapp-hello/                          # Turborepo root (npm workspaces)
         metrics.ts                    # Custom OTel meters
         auth/                         # JWT authentication (global guard)
         database/                     # PostgreSQL via pg Pool (global module) + migration runner
+        items/                        # Example CRUD resource (DTOs, service, controller)
         metrics/                      # Request metrics interceptor (global)
         __tests__/                    # Integration tests (Vitest + @nestjs/testing + supertest)
       migrations/                     # SQL migration files
@@ -126,15 +127,20 @@ URI-based versioning via `app.enableVersioning({ type: VersioningType.URI, defau
 
 ## API Contracts (must NOT change)
 
-| Endpoint            | Response                                     |
-| ------------------- | -------------------------------------------- |
-| `GET /health`       | `{ status: 'ok' }` (public, unversioned)     |
-| `GET /v1`           | `{ message, env, app, db, ... }`             |
-| `GET /metrics`      | Prometheus text format (public, unversioned) |
-| `GET /openapi.json` | OpenAPI 3.0 spec (unversioned)               |
-| `GET /docs`         | Swagger UI (unversioned)                     |
-| Auth 401            | `{ error: 'Unauthorized' }`                  |
-| Rate limit          | `x-ratelimit-limit/remaining/reset` headers  |
+| Endpoint               | Response                                      |
+| ---------------------- | --------------------------------------------- |
+| `GET /health`          | `{ status: 'ok' }` (public, unversioned)      |
+| `GET /v1`              | `{ message, env, app, db, ... }`              |
+| `GET /metrics`         | Prometheus text format (public, unversioned)  |
+| `GET /openapi.json`    | OpenAPI 3.0 spec (unversioned)                |
+| `GET /docs`            | Swagger UI (unversioned)                      |
+| `POST /v1/items`       | Create item (auth, validated DTO)             |
+| `GET /v1/items`        | Paginated list `{ data, total, page, limit }` |
+| `GET /v1/items/:id`    | Single item by UUID (auth, owner-scoped)      |
+| `PATCH /v1/items/:id`  | Update item (auth, partial DTO)               |
+| `DELETE /v1/items/:id` | Soft delete (auth, sets status=deleted)       |
+| Auth 401               | `{ error: 'Unauthorized' }`                   |
+| Rate limit             | `x-ratelimit-limit/remaining/reset` headers   |
 
 ## Sensitive Files (NEVER read)
 
