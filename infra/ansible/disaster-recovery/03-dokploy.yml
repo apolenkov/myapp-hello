@@ -31,6 +31,7 @@
 
     - name: Run Dokploy install script (first-time only)
       ansible.builtin.shell: /tmp/dokploy-install.sh
+      changed_when: true
       when: not dokploy_installed.stat.exists
 
     - name: Remove install script

@@ -9,7 +9,7 @@
 
     - name: Configure rclone R2
       ansible.builtin.template:
-        src: ../templates/rclone.conf.j2
+        src: templates/rclone.conf.j2
         dest: /root/.config/rclone/rclone.conf
         mode: '0600'
       no_log: true

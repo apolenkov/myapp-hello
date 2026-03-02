@@ -1,7 +1,14 @@
-- import_playbook: 01-base.yml
-- import_playbook: 02-docker.yml
-- import_playbook: 03-dokploy.yml
-- import_playbook: 04-rclone.yml
-- import_playbook: 05-restore.yml
-- import_playbook: 06-smoke.yml
-- import_playbook: 07-observability.yml
+- name: 'DR Step 1: Base OS setup'
+  import_playbook: 01-base.yml
+- name: 'DR Step 2: Docker and Swarm'
+  import_playbook: 02-docker.yml
+- name: 'DR Step 3: Dokploy platform'
+  import_playbook: 03-dokploy.yml
+- name: 'DR Step 4: Rclone for backups'
+  import_playbook: 04-rclone.yml
+- name: 'DR Step 5: Restore databases'
+  import_playbook: 05-restore.yml
+- name: 'DR Step 6: Smoke tests'
+  import_playbook: 06-smoke.yml
+- name: 'DR Step 7: Observability agents'
+  import_playbook: 07-observability.yml

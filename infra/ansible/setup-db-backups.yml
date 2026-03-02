@@ -113,13 +113,13 @@
     # ── Step 3: Check existing backup configs ─────────────────────────
     - name: Fetch details for each PostgreSQL instance
       ansible.builtin.uri:
-        url: '{{ dokploy_url }}/api/trpc/postgres.one?input={{ query | to_json | urlencode }}'
+        url: '{{ dokploy_url }}/api/trpc/postgres.one?input={{ trpc_input | to_json | urlencode }}'
         method: GET
         headers:
           x-api-key: '{{ dokploy_token }}'
         return_content: true
       vars:
-        query:
+        trpc_input:
           json:
             postgresId: '{{ item.postgresId }}'
       loop: '{{ postgres_instances }}'
@@ -180,13 +180,13 @@
     # ── Step 5: Trigger test backup ───────────────────────────────────
     - name: Fetch updated details to get backup IDs
       ansible.builtin.uri:
-        url: '{{ dokploy_url }}/api/trpc/postgres.one?input={{ query | to_json | urlencode }}'
+        url: '{{ dokploy_url }}/api/trpc/postgres.one?input={{ trpc_input | to_json | urlencode }}'
         method: GET
         headers:
           x-api-key: '{{ dokploy_token }}'
         return_content: true
       vars:
-        query:
+        trpc_input:
           json:
             postgresId: '{{ item.postgresId }}'
       loop: '{{ postgres_instances }}'
