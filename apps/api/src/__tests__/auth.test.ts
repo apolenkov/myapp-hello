@@ -7,6 +7,7 @@ import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { AppModule } from '../app.module'
+import { JWT_AUDIENCE, JWT_ISSUER } from '../auth/jwt.constants'
 import { UnauthorizedExceptionFilter } from '../auth/unauthorized-exception.filter'
 import { createMockConfigService, TEST_JWT_SECRET, testConfigService } from './test-utils'
 
@@ -70,7 +71,10 @@ describe('Auth Guard', () => {
 
   it('should allow access to @Public() routes with valid token', async () => {
     const jwtService = new JwtService({})
-    const token = jwtService.sign({ sub: 'user-123', role: 'admin' }, { secret: TEST_JWT_SECRET })
+    const token = jwtService.sign(
+      { sub: 'user-123', role: 'admin' },
+      { secret: TEST_JWT_SECRET, issuer: JWT_ISSUER, audience: JWT_AUDIENCE },
+    )
 
     const res = await request(ctx.app.getHttpServer())
       .get('/health')
@@ -90,7 +94,10 @@ describe('Auth Guard', () => {
 
   it('should return 200 for valid token on protected route', async () => {
     const jwtService = new JwtService({})
-    const token = jwtService.sign({ sub: 'user-123', role: 'admin' }, { secret: TEST_JWT_SECRET })
+    const token = jwtService.sign(
+      { sub: 'user-123', role: 'admin' },
+      { secret: TEST_JWT_SECRET, issuer: JWT_ISSUER, audience: JWT_AUDIENCE },
+    )
 
     const res = await request(ctx.app.getHttpServer())
       .get(PROTECTED_ROUTE)
@@ -104,7 +111,7 @@ describe('Auth Guard', () => {
     const jwtService = new JwtService({})
     const token = jwtService.sign(
       { sub: 'user-123', role: 'admin' },
-      { secret: TEST_JWT_SECRET, expiresIn: '0s' },
+      { secret: TEST_JWT_SECRET, issuer: JWT_ISSUER, audience: JWT_AUDIENCE, expiresIn: '0s' },
     )
 
     const res = await request(ctx.app.getHttpServer())
@@ -119,7 +126,7 @@ describe('Auth Guard', () => {
     const jwtService = new JwtService({})
     const token = jwtService.sign(
       { sub: 'user-123' },
-      { secret: TEST_JWT_SECRET, algorithm: 'HS384' },
+      { secret: TEST_JWT_SECRET, issuer: JWT_ISSUER, audience: JWT_AUDIENCE, algorithm: 'HS384' },
     )
 
     const res = await request(ctx.app.getHttpServer())

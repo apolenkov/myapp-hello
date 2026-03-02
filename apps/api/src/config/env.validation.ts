@@ -45,6 +45,14 @@ function validateFormats(config: Record<string, unknown>): string[] {
 /**
  * Validates environment variables at application startup.
  * Throws if required vars are missing in production or formats are invalid.
+ *
+ * Pre-bootstrap env vars (checked before NestJS DI):
+ * - NODE_ENV:        'production' | 'development' | 'test' (default: 'development')
+ * - JWT_SECRET:      signing key, min 32 chars (required in production)
+ * - DATABASE_URL:    postgres(ql):// connection string (required in production)
+ * - PORT:            HTTP listen port, 1-65535 (default: 3001, set in main.ts)
+ * - THROTTLE_TTL:    rate-limit window in ms (default: 60000)
+ * - THROTTLE_LIMIT:  max requests per TTL window (default: 100)
  */
 export function validate(config: Record<string, unknown>): Record<string, unknown> {
   const errors: string[] = []

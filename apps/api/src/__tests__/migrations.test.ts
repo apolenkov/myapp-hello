@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common'
 import type { Pool, PoolClient } from 'pg'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { runMigrations } from '../db/migrate'
+import { runMigrations } from '../database/migrate'
 
 const MIGRATIONS_DIR = join(__dirname, '..', '..', 'migrations')
 const FILE_001 = '001_initial.sql'

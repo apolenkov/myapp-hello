@@ -39,9 +39,8 @@ myapp-hello/                          # Turborepo root (npm workspaces)
         instrumentation.ts            # OTel SDK init (loaded via --require)
         metrics.ts                    # Custom OTel meters
         auth/                         # JWT authentication (global guard)
-        database/                     # PostgreSQL via pg Pool (global module)
+        database/                     # PostgreSQL via pg Pool (global module) + migration runner
         metrics/                      # Request metrics interceptor (global)
-        db/                           # Migration runner (advisory lock, SQL files)
         __tests__/                    # Integration tests (Vitest + @nestjs/testing + supertest)
       migrations/                     # SQL migration files
       Dockerfile                      # Multi-stage turbo prune build
@@ -87,7 +86,7 @@ myapp-hello/                          # Turborepo root (npm workspaces)
 - Framework: Vitest + `@nestjs/testing` + supertest
 - Pattern: `Test.createTestingModule()` per test suite, `app.init()` in beforeAll
 - Coverage: v8 provider, thresholds 90% lines/functions/statements, 85% branches
-- Excluded from coverage: `main.ts`, `instrumentation.ts`, `db/migrate.ts`, `config/**`
+- Excluded from coverage: `main.ts`, `instrumentation.ts`, `config/**`
 
 ## Deployment
 

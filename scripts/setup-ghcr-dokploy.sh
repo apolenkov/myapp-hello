@@ -16,10 +16,13 @@ set -euo pipefail
 REGISTRY="ghcr.io"
 IMAGE="apolenkov/myapp-api"
 
-# Dokploy application IDs (from GitHub Secrets / CLAUDE.md)
-DEV_APP_ID="${DOKPLOY_SERVICE_ID_DEV:-LhtGf_Cl2ITpD7CcSex8a}"
-STAGING_APP_ID="${DOKPLOY_SERVICE_ID_STAGING:-L2cYMGloyihivImeTfoYt}"
-PROD_APP_ID="${DOKPLOY_SERVICE_ID_PROD:-YPBkMrtU6gGRi_nq-gHir}"
+# Dokploy application IDs — must be set via environment variables
+: "${DOKPLOY_SERVICE_ID_DEV:?Set DOKPLOY_SERVICE_ID_DEV env var}"
+: "${DOKPLOY_SERVICE_ID_STAGING:?Set DOKPLOY_SERVICE_ID_STAGING env var}"
+: "${DOKPLOY_SERVICE_ID_PROD:?Set DOKPLOY_SERVICE_ID_PROD env var}"
+DEV_APP_ID="$DOKPLOY_SERVICE_ID_DEV"
+STAGING_APP_ID="$DOKPLOY_SERVICE_ID_STAGING"
+PROD_APP_ID="$DOKPLOY_SERVICE_ID_PROD"
 
 if [ -z "${DOKPLOY_URL:-}" ] || [ -z "${DOKPLOY_TOKEN:-}" ]; then
   echo "Error: DOKPLOY_URL and DOKPLOY_TOKEN must be set"

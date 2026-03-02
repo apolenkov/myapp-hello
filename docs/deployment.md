@@ -146,7 +146,7 @@ state.
 ### Database Migrations
 
 Migrations run automatically on every application startup before the HTTP server
-begins accepting traffic. The runner is in `apps/api/src/db/migrate.ts`.
+begins accepting traffic. The runner is in `apps/api/src/database/migrate.ts`.
 
 #### Advisory Lock
 
@@ -195,7 +195,7 @@ Since migrations are forward-only, reversing a change requires a new migration:
    change (e.g., `004_revert_add_users.sql`)
 2. Push to `main` — it will be applied automatically on next deployment
 
-Cross-reference: [`apps/api/src/db/migrate.ts`](../apps/api/src/db/migrate.ts)
+Cross-reference: [`apps/api/src/database/migrate.ts`](../apps/api/src/database/migrate.ts)
 for implementation, [Development Guide](development.md) for the migration
 sequence diagram.
 

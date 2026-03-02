@@ -44,16 +44,31 @@
         label: '{{ item.item.name }}'
       when: item.stdout != ''
 
+    # Safe restore: load into temp DB first, then swap via rename.
+    # If restore fails, original database stays intact.
     - name: Restore PostgreSQL database — {{ item.0.item.name }}
       ansible.builtin.shell: |
         set -euo pipefail
         CNAME="{{ item.0.stdout }}"
         DB="{{ item.0.item.db }}"
+        TMP_DB="${DB}_restore_tmp"
         DUMP="/tmp/restore/postgres/myapp_{{ item.0.item.name }}.sql.gz"
 
+        # Clean up any leftover temp DB from a previous failed run
+        docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "DROP DATABASE IF EXISTS ${TMP_DB}"
+
+        # Create temp DB and restore dump into it
+        docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE DATABASE ${TMP_DB}"
+        zcat "$DUMP" | docker exec -i "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres "${TMP_DB}"
+
+        # Terminate connections to the original DB before swap
+        docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c \
+          "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB}' AND pid <> pg_backend_pid()"
+
+        # Swap: drop original, rename temp → original
         docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "DROP DATABASE IF EXISTS ${DB}"
-        docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE DATABASE ${DB}"
-        zcat "$DUMP" | docker exec -i "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres "${DB}"
+        docker exec "$CNAME" psql -v ON_ERROR_STOP=1 -U postgres -c "ALTER DATABASE ${TMP_DB} RENAME TO ${DB}"
+
         echo "Restored: {{ item.0.item.name }} (database: ${DB})"
       args:
         executable: /bin/bash

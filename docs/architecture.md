@@ -104,7 +104,7 @@ Container_Boundary(app, "myapp-hello — NestJS App") {
     Component(metrics_module, "metrics/", "MetricsModule", "OTel metrics interceptor")
     Component(metrics_int, "metrics/metrics.interceptor.ts", "MetricsInterceptor", "HTTP duration + count")
     Component(otel, "instrumentation.ts", "OpenTelemetry SDK", "Prometheus exporter, OTLP traces")
-    Component(migrate, "db/migrate.ts", "node-postgres", "Run SQL migrations on startup (advisory lock)")
+    Component(migrate, "database/migrate.ts", "node-postgres", "Run SQL migrations on startup (advisory lock)")
 }
 ContainerDb(postgres, "PostgreSQL", "PostgreSQL 17")
 Container(traefik, "Traefik", "Reverse Proxy")

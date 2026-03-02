@@ -23,6 +23,20 @@ module.exports = {
       to: { path: '^src/(auth|database)' },
     },
     {
+      name: 'auth-no-feature-imports',
+      severity: 'error',
+      comment: 'Auth module must not depend on database or metrics',
+      from: { path: '^src/auth' },
+      to: { path: '^src/(database|metrics)' },
+    },
+    {
+      name: 'config-no-feature-imports',
+      severity: 'error',
+      comment: 'Config module must not depend on feature modules',
+      from: { path: '^src/config' },
+      to: { path: '^src/(auth|database|metrics)' },
+    },
+    {
       name: 'no-test-in-production',
       severity: 'error',
       comment: 'Production code must not import test files',

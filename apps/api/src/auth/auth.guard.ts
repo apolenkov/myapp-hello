@@ -6,6 +6,7 @@ import type { Request } from 'express'
 import { JsonWebTokenError } from 'jsonwebtoken'
 
 import { IS_PUBLIC_KEY } from './public.decorator'
+import type { JwtPayload, RequestWithUser } from './request-with-user'
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -36,11 +37,11 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = this.jwt.verify<Record<string, unknown>>(token, {
+      const payload = this.jwt.verify<JwtPayload>(token, {
         secret,
         algorithms: ['HS256'],
       })
-      ;(request as unknown as Record<string, unknown>)['user'] = payload
+      ;(request as unknown as RequestWithUser).user = payload
       return true
     } catch (err) {
       // Only catch JWT validation errors — let unexpected errors propagate
