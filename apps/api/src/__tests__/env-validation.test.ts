@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { validate } from '../config/env.validation'
 
 const TTL_ERROR = 'THROTTLE_TTL must be a positive integer'
+const VALID_DB_URL = 'postgres://user:pass@host/db'
+const VALID_CORS = 'https://example.com'
 
 describe('env validation — development/test mode', () => {
   it('should pass with no env vars', () => {
@@ -31,7 +33,8 @@ describe('env validation — production mode', () => {
     const config = {
       NODE_ENV: 'production',
       JWT_SECRET: 'a'.repeat(32),
-      DATABASE_URL: 'postgres://user:pass@host/db',
+      DATABASE_URL: VALID_DB_URL,
+      CORS_ORIGIN: VALID_CORS,
     }
     const result = validate(config)
 
@@ -46,7 +49,8 @@ describe('env validation — production mode', () => {
     expect(() =>
       validate({
         NODE_ENV: 'production',
-        DATABASE_URL: 'postgres://user:pass@host/db',
+        DATABASE_URL: VALID_DB_URL,
+        CORS_ORIGIN: VALID_CORS,
       }),
     ).toThrow('JWT_SECRET is required in production')
   })
@@ -56,8 +60,19 @@ describe('env validation — production mode', () => {
       validate({
         NODE_ENV: 'production',
         JWT_SECRET: 'a'.repeat(32),
+        CORS_ORIGIN: VALID_CORS,
       }),
     ).toThrow('DATABASE_URL is required in production')
+  })
+
+  it('should fail when CORS_ORIGIN is missing', () => {
+    expect(() =>
+      validate({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'a'.repeat(32),
+        DATABASE_URL: VALID_DB_URL,
+      }),
+    ).toThrow('CORS_ORIGIN is required in production')
   })
 })
 
@@ -146,6 +161,6 @@ describe('env validation — multiple errors', () => {
         NODE_ENV: 'production',
         PORT: 'invalid',
       }),
-    ).toThrow(/JWT_SECRET.*DATABASE_URL.*PORT/s)
+    ).toThrow(/JWT_SECRET.*DATABASE_URL.*CORS_ORIGIN.*PORT/s)
   })
 })

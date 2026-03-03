@@ -70,6 +70,10 @@ export function validate(config: Record<string, unknown>): Record<string, unknow
     errors.push('DATABASE_URL is required in production')
   }
 
+  if (isProduction && !config['CORS_ORIGIN']) {
+    errors.push('CORS_ORIGIN is required in production')
+  }
+
   errors.push(...validateFormats(config))
 
   if (errors.length > 0) {

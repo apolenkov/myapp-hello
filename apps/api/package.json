@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Production NestJS REST API with PostgreSQL, JWT auth, and OpenTelemetry",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "main": "dist/main.js",
   "scripts": {
     "start": "node dist/main.js",
@@ -37,6 +40,7 @@
     "@sentry/opentelemetry": "^10.39.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "compression": "^1.8.1",
     "helmet": "^8.1.0",
     "nestjs-pino": "^4.6.0",
     "pg": "^8.18.0",
@@ -52,6 +56,7 @@
     "@nestjs/testing": "^11.1.14",
     "@swc/cli": "^0.8.0",
     "@swc/core": "^1.15.18",
+    "@types/compression": "^1.8.1",
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.3",
     "@types/pg": "^8.18.0",

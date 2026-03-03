@@ -41,10 +41,11 @@ afterAll(async () => {
 })
 
 describe('GET /health', () => {
-  it('should return status ok without leaking env details', async () => {
+  it('should return status ok with db connectivity info', async () => {
     const res = await request(ctx.app.getHttpServer()).get('/health').expect(200)
 
-    expect(res.body).toEqual({ status: 'ok' })
+    expect(res.body).toHaveProperty('status', 'ok')
+    expect(res.body).toHaveProperty('db', DB_STATUS_NOT_CONFIGURED)
     expect(res.body).not.toHaveProperty('env')
     expect(res.body).not.toHaveProperty('app')
   })

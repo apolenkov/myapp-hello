@@ -15,7 +15,7 @@ export class AppController {
   @SkipThrottle()
   @ApiOperation({ summary: 'Health check' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
-  getHealth(): { status: string } {
+  async getHealth(): Promise<{ status: string; db?: string }> {
     return this.appService.getHealth()
   }
 

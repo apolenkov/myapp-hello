@@ -35,7 +35,8 @@ export class AppService {
     return response
   }
 
-  getHealth(): { status: string } {
-    return { status: 'ok' }
+  async getHealth(): Promise<{ status: string; db?: string }> {
+    const dbStatus = await this.db.ping()
+    return { status: 'ok', db: dbStatus }
   }
 }

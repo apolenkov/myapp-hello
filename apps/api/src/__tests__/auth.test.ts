@@ -66,7 +66,7 @@ describe('Auth Guard — access control', () => {
     const res = await request(ctx.app.getHttpServer()).get('/health')
 
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ status: 'ok' })
+    expect(res.body).toHaveProperty('status', 'ok')
   })
 
   it('should allow access to @Public() routes with valid token', async () => {
