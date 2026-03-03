@@ -24,7 +24,7 @@ Ansible playbooks for full VPS restore of the myapp-hello stack.
 ## Full Restore from Scratch
 
 ```bash
-ansible-playbook -i inventory.yml site.yml --ask-vault-pass
+ansible-playbook -i ../inventory/hosts.yml site.yml --ask-vault-pass
 ```
 
 Runs all 7 playbooks in order: base → docker → dokploy → rclone → restore → smoke → observability.
@@ -33,16 +33,16 @@ Runs all 7 playbooks in order: base → docker → dokploy → rclone → restor
 
 ```bash
 # Smoke test only
-ansible-playbook -i inventory.yml 06-smoke.yml
+ansible-playbook -i ../inventory/hosts.yml 06-smoke.yml
 
 # Redeploy observability agents
-ansible-playbook -i inventory.yml 07-observability.yml --ask-vault-pass
+ansible-playbook -i ../inventory/hosts.yml 07-observability.yml --ask-vault-pass
 ```
 
 ## Dry Run (no changes)
 
 ```bash
-ansible-playbook -i inventory.yml site.yml --check --ask-vault-pass
+ansible-playbook -i ../inventory/hosts.yml site.yml --check --ask-vault-pass
 ```
 
 ## Backup Source

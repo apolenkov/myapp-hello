@@ -73,7 +73,7 @@ const base = [
     plugins: { security },
     rules: {
       'security/detect-non-literal-regexp': 'error',
-      'security/detect-object-injection': 'warn',
+      'security/detect-object-injection': 'error',
     },
   },
 

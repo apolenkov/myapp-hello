@@ -12,7 +12,8 @@
     },
     "test:coverage": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "tsconfig.json"]
+      "inputs": ["src/**", "package.json", "tsconfig.json"],
+      "outputs": ["coverage/**"]
     },
     "lint": {
       "inputs": ["src/**", "package.json", "tsconfig.json"]

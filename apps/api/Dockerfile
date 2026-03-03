@@ -34,7 +34,7 @@ USER nodejs
 ENV PORT=3001
 EXPOSE ${PORT}
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -qO- http://localhost:${PORT}/health || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]

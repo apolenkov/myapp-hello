@@ -17,7 +17,7 @@ services:
     networks:
       - observability
     ports:
-      - '9080:9080'
+      - '127.0.0.1:9080:9080'
     deploy:
       resources:
         limits:
@@ -39,7 +39,7 @@ services:
       - observability
       - dokploy-network
     ports:
-      - '12345:12345'
+      - '127.0.0.1:12345:12345'
     deploy:
       resources:
         limits:
