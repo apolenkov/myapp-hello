@@ -16,7 +16,10 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format:check": "prettier --check .",
-    "check:arch": "depcruise src --config .dependency-cruiser.cjs"
+    "check:arch": "depcruise src --config .dependency-cruiser.cjs",
+    "load:smoke": "k6 run -e PROFILE=smoke load-tests/health.js",
+    "load:baseline": "k6 run load-tests/health.js && k6 run load-tests/auth-flow.js && k6 run load-tests/items-crud.js",
+    "load:quick": "npx autocannon -c 20 -d 30 http://localhost:3001/health"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.14",
