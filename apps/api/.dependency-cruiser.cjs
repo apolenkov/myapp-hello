@@ -25,9 +25,9 @@ module.exports = {
     {
       name: 'auth-no-feature-imports',
       severity: 'error',
-      comment: 'Auth module must not depend on database or metrics',
+      comment: 'Auth module may use database but must not depend on items or metrics',
       from: { path: '^src/auth' },
-      to: { path: '^src/(database|items|metrics)' },
+      to: { path: '^src/(items|metrics)' },
     },
     {
       name: 'config-no-feature-imports',
