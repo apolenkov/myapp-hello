@@ -15,6 +15,7 @@ import { TEST_JWT_SECRET, testConfigService } from './helpers/test-utils'
 
 const ITEMS_URL = '/v1/items'
 const UPDATED_TITLE = 'Updated title'
+const OTHER_USER_ID = 'other-user'
 
 const makeToken = (sub = 'user-123'): string => {
   const jwt = new JwtService({})
@@ -263,8 +264,44 @@ describe('Items — user isolation', () => {
 
     await request(ctx.app.getHttpServer())
       .get(ITEMS_URL)
-      .set('Authorization', `Bearer ${makeToken('other-user')}`)
+      .set('Authorization', `Bearer ${makeToken(OTHER_USER_ID)}`)
 
-    expect(ctx.dbQuery).toHaveBeenCalledWith(expect.any(String), ['other-user', 20, 0])
+    expect(ctx.dbQuery).toHaveBeenCalledWith(expect.any(String), [OTHER_USER_ID, 20, 0])
+  })
+
+  it('should return 404 when deleting another user item', async () => {
+    ctx.dbQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 })
+
+    const res = await request(ctx.app.getHttpServer())
+      .delete(`${ITEMS_URL}/${SAMPLE_ROW.id}`)
+      .set('Authorization', `Bearer ${makeToken(OTHER_USER_ID)}`)
+
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('Items — edge cases', () => {
+  it('should return 200 for PATCH with empty body (no-op update)', async () => {
+    ctx.dbQuery.mockResolvedValueOnce({ rows: [SAMPLE_ROW], rowCount: 1 })
+
+    const res = await request(ctx.app.getHttpServer())
+      .patch(`${ITEMS_URL}/${SAMPLE_ROW.id}`)
+      .set('Authorization', `Bearer ${makeToken()}`)
+      .send({})
+
+    expect(res.status).toBe(200)
+  })
+
+  it('should return item with description null when created without description', async () => {
+    const rowNoDesc = { ...SAMPLE_ROW, description: null }
+    ctx.dbQuery.mockResolvedValueOnce({ rows: [rowNoDesc], rowCount: 1 })
+
+    const res = await request(ctx.app.getHttpServer())
+      .post(ITEMS_URL)
+      .set('Authorization', `Bearer ${makeToken()}`)
+      .send({ title: 'No description item' })
+
+    expect(res.status).toBe(201)
+    expect(res.body.description).toBeNull()
   })
 })

@@ -1,6 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
 
+import { ITEM_STATUS_ACTIVE, ITEM_STATUS_ARCHIVED } from '../items.constants'
+
+const ALLOWED_STATUSES = [ITEM_STATUS_ACTIVE, ITEM_STATUS_ARCHIVED] as const
+
 export class UpdateItemDto {
   @ApiProperty({ example: 'Updated title', required: false, minLength: 1, maxLength: 255 })
   @IsOptional()
@@ -15,8 +19,8 @@ export class UpdateItemDto {
   @MaxLength(2000)
   description?: string
 
-  @ApiProperty({ example: 'archived', required: false, enum: ['active', 'archived'] })
+  @ApiProperty({ example: 'archived', required: false, enum: ALLOWED_STATUSES })
   @IsOptional()
-  @IsEnum(['active', 'archived'] as const)
+  @IsEnum(ALLOWED_STATUSES)
   status?: 'active' | 'archived'
 }

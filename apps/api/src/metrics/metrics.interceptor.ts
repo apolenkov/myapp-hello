@@ -12,11 +12,11 @@ export class MetricsInterceptor implements NestInterceptor {
     const http = context.switchToHttp()
     const req = http.getRequest<Request>()
     const res = http.getResponse<Response>()
-    const route = (req.route as { path: string } | undefined)?.path ?? req.path
-
-    if (IGNORED_PATHS.has(route)) {
+    if (IGNORED_PATHS.has(req.path)) {
       return next.handle()
     }
+
+    const route = (req.route as { path: string } | undefined)?.path ?? 'unknown'
 
     return next.handle().pipe(
       finalize(() => {

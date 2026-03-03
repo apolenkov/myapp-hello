@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 
+import { DEFAULT_APP_NAME, DEFAULT_NODE_ENV, NODE_ENV_PRODUCTION } from './constants'
 import { DatabaseService } from './database/database.service'
 
 interface HelloResponse {
   message: string
-  env: string
   app: string
-  db: string
   timestamp: string
+  env?: string
+  db?: string
 }
 
 @Injectable()
@@ -19,15 +20,19 @@ export class AppService {
   ) {}
 
   async getHello(): Promise<HelloResponse> {
-    const dbStatus = await this.db.ping()
-
-    return {
+    const nodeEnv = this.config.get<string>('NODE_ENV') ?? DEFAULT_NODE_ENV
+    const response: HelloResponse = {
       message: 'Hello World!',
-      env: this.config.get<string>('NODE_ENV') ?? 'development',
-      app: this.config.get<string>('APP_NAME') ?? 'myapp-hello',
-      db: dbStatus,
+      app: this.config.get<string>('APP_NAME') ?? DEFAULT_APP_NAME,
       timestamp: new Date().toISOString(),
     }
+
+    if (nodeEnv !== NODE_ENV_PRODUCTION) {
+      response.env = nodeEnv
+      response.db = await this.db.ping()
+    }
+
+    return response
   }
 
   getHealth(): { status: string } {

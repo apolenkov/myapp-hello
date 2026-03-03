@@ -3,7 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import type { CreateItemDto } from './dto/create-item.dto'
 import type { UpdateItemDto } from './dto/update-item.dto'
-import { ITEM_NOT_FOUND } from './items.constants'
+import { ITEM_NOT_FOUND, ITEM_STATUS_DELETED } from './items.constants'
 import type { Item, PaginatedItems } from './items.types'
 
 interface ItemRow {
@@ -46,7 +46,7 @@ export class ItemsService {
     const result = await this.db.query(
       `SELECT *, COUNT(*) OVER() AS full_count
        FROM items
-       WHERE user_id = $1 AND status != 'deleted'
+       WHERE user_id = $1 AND status != '${ITEM_STATUS_DELETED}'
        ORDER BY created_at DESC
        LIMIT $2 OFFSET $3`,
       [userId, limit, offset],
@@ -65,7 +65,7 @@ export class ItemsService {
 
   async findOne(userId: string, id: string): Promise<Item> {
     const result = await this.db.query(
-      `SELECT * FROM items WHERE id = $1 AND user_id = $2 AND status != 'deleted'`,
+      `SELECT * FROM items WHERE id = $1 AND user_id = $2 AND status != '${ITEM_STATUS_DELETED}'`,
       [id, userId],
     )
     const row = result.rows[0] as ItemRow | undefined
@@ -93,7 +93,7 @@ export class ItemsService {
 
     const result = await this.db.query(
       `UPDATE items SET ${fields.join(', ')}
-       WHERE id = $1 AND user_id = $2 AND status != 'deleted'
+       WHERE id = $1 AND user_id = $2 AND status != '${ITEM_STATUS_DELETED}'
        RETURNING *`,
       [id, userId, ...values],
     )
@@ -104,8 +104,8 @@ export class ItemsService {
 
   async remove(userId: string, id: string): Promise<Item> {
     const result = await this.db.query(
-      `UPDATE items SET status = 'deleted', updated_at = $3
-       WHERE id = $1 AND user_id = $2 AND status != 'deleted'
+      `UPDATE items SET status = '${ITEM_STATUS_DELETED}', updated_at = $3
+       WHERE id = $1 AND user_id = $2 AND status != '${ITEM_STATUS_DELETED}'
        RETURNING *`,
       [id, userId, new Date()],
     )

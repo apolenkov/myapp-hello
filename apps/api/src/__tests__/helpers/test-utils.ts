@@ -8,7 +8,7 @@ import { prometheusExporter } from '../../instrumentation'
 import { AppModule } from '../../app.module'
 import { UnauthorizedExceptionFilter } from '../../auth/unauthorized-exception.filter'
 
-export const TEST_JWT_SECRET = 'test-secret-for-unit-tests'
+export const TEST_JWT_SECRET = 'test-secret-for-unit-tests-min32c'
 
 const TEST_CONFIG: Record<string, string> = {
   JWT_SECRET: TEST_JWT_SECRET,

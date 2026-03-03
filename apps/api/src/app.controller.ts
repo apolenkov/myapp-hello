@@ -25,10 +25,10 @@ export class AppController {
   @ApiResponse({ status: 200, description: 'Hello World response with environment details' })
   async getHello(): Promise<{
     message: string
-    env: string
     app: string
-    db: string
     timestamp: string
+    env?: string
+    db?: string
   }> {
     return this.appService.getHello()
   }

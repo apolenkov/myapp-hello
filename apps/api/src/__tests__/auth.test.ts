@@ -123,12 +123,44 @@ describe('Auth Guard — token validation', () => {
     expect(res.status).toBe(401)
     expect(res.body).toEqual({ error: ERROR_INVALID_TOKEN })
   })
+})
 
+describe('Auth Guard — token claim validation', () => {
   it('should return 401 for token signed with wrong algorithm', async () => {
     const jwtService = new JwtService({})
     const token = jwtService.sign(
       { sub: 'user-123' },
       { secret: TEST_JWT_SECRET, issuer: JWT_ISSUER, audience: JWT_AUDIENCE, algorithm: 'HS384' },
+    )
+
+    const res = await request(ctx.app.getHttpServer())
+      .get(PROTECTED_ROUTE)
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: ERROR_INVALID_TOKEN })
+  })
+
+  it('should return 401 for token with wrong issuer', async () => {
+    const jwtService = new JwtService({})
+    const token = jwtService.sign(
+      { sub: 'user-123' },
+      { secret: TEST_JWT_SECRET, issuer: 'wrong-issuer', audience: JWT_AUDIENCE },
+    )
+
+    const res = await request(ctx.app.getHttpServer())
+      .get(PROTECTED_ROUTE)
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: ERROR_INVALID_TOKEN })
+  })
+
+  it('should return 401 for token with wrong audience', async () => {
+    const jwtService = new JwtService({})
+    const token = jwtService.sign(
+      { sub: 'user-123' },
+      { secret: TEST_JWT_SECRET, issuer: JWT_ISSUER, audience: 'wrong-audience' },
     )
 
     const res = await request(ctx.app.getHttpServer())

@@ -2,11 +2,10 @@ import type { Request } from 'express'
 
 export interface JwtPayload {
   sub: string
+  iss: string
+  aud: string
   iat?: number
   exp?: number
-  iss?: string
-  aud?: string
-  [key: string]: unknown
 }
 
 export interface RequestWithUser extends Request {

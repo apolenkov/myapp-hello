@@ -1,3 +1,5 @@
+import { DEFAULT_NODE_ENV, NODE_ENV_PRODUCTION } from '../constants'
+
 function validateFormats(config: Record<string, unknown>): string[] {
   const errors: string[] = []
 
@@ -51,13 +53,14 @@ function validateFormats(config: Record<string, unknown>): string[] {
  * - JWT_SECRET:      signing key, min 32 chars (required in production)
  * - DATABASE_URL:    postgres(ql):// connection string (required in production)
  * - PORT:            HTTP listen port, 1-65535 (default: 3001, set in main.ts)
+ * - CORS_ORIGIN:     allowed CORS origin (default: '*')
  * - THROTTLE_TTL:    rate-limit window in ms (default: 60000)
  * - THROTTLE_LIMIT:  max requests per TTL window (default: 100)
  */
 export function validate(config: Record<string, unknown>): Record<string, unknown> {
   const errors: string[] = []
-  const nodeEnv = typeof config['NODE_ENV'] === 'string' ? config['NODE_ENV'] : 'development'
-  const isProduction = nodeEnv === 'production'
+  const nodeEnv = typeof config['NODE_ENV'] === 'string' ? config['NODE_ENV'] : DEFAULT_NODE_ENV
+  const isProduction = nodeEnv === NODE_ENV_PRODUCTION
 
   if (isProduction && !config['JWT_SECRET']) {
     errors.push('JWT_SECRET is required in production')

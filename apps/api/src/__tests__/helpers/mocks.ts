@@ -17,6 +17,21 @@ export const createUndefinedConfigService = (): ConfigService =>
   }) as unknown as ConfigService
 
 /**
+ * Create a mock ConfigService backed by a key-value map.
+ * Returns the mapped value or undefined for unknown keys.
+ */
+export const createMapConfigService = (map: Record<string, string>): ConfigService =>
+  ({
+    get: <T = string>(key: string, defaultValue?: T): T | undefined =>
+      (map[key] as T | undefined) ?? defaultValue,
+    getOrThrow: vi.fn().mockImplementation((key: string) => {
+      const value = map[key]
+      if (value === undefined) throw new Error(`Config key "${key}" is not defined`)
+      return value
+    }),
+  }) as unknown as ConfigService
+
+/**
  * Create a mock ConfigService that returns a fixed value for all keys.
  * Useful for DatabaseService tests where only DATABASE_URL matters.
  */

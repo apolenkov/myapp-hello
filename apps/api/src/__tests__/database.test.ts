@@ -119,6 +119,7 @@ describe('DatabaseService — health check', () => {
 
 describe('DatabaseService — query and lifecycle', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 

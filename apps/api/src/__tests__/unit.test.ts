@@ -5,13 +5,17 @@ import type { AbstractHttpAdapter, Reflector } from '@nestjs/core'
 import type { JwtService } from '@nestjs/jwt'
 import { SentryGlobalFilter } from '@sentry/nestjs/setup'
 import { firstValueFrom, of } from 'rxjs'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AppService } from '../app.service'
 import { JwtAuthGuard } from '../auth/auth.guard'
 import * as metricsModule from '../metrics/instruments'
 import { MetricsInterceptor } from '../metrics/metrics.interceptor'
-import { createMockDatabaseService, createUndefinedConfigService } from './helpers/mocks'
+import {
+  createMapConfigService,
+  createMockDatabaseService,
+  createUndefinedConfigService,
+} from './helpers/mocks'
 
 describe('JwtAuthGuard — missing JWT_SECRET at runtime', () => {
   it('throws UnauthorizedException when JWT_SECRET config is missing', () => {
@@ -65,10 +69,14 @@ describe('JwtAuthGuard — non-JWT errors propagate instead of being swallowed',
   })
 })
 
-const TEST_ROUTE = '/some-unknown-path'
+const UNKNOWN_ROUTE = 'unknown'
 
 describe('MetricsInterceptor — records metrics using req.path fallback', () => {
-  it('uses req.path as route when req.route is undefined and records metrics', async () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('normalizes unknown routes to "unknown" to prevent cardinality explosion', async () => {
     const recordSpy = vi
       .spyOn(metricsModule.httpRequestDuration, 'record')
       .mockImplementation(() => undefined)
@@ -81,7 +89,7 @@ describe('MetricsInterceptor — records metrics using req.path fallback', () =>
       switchToHttp: vi.fn().mockReturnValue({
         getRequest: vi.fn().mockReturnValue({
           route: undefined,
-          path: TEST_ROUTE,
+          path: '/some-scanner-path',
           method: 'GET',
         }),
         getResponse: vi.fn().mockReturnValue({ statusCode: 200 }),
@@ -98,23 +106,24 @@ describe('MetricsInterceptor — records metrics using req.path fallback', () =>
     expect(duration).toBeGreaterThanOrEqual(0)
     expect(attrs).toEqual({
       method: 'GET',
-      route: TEST_ROUTE,
+      route: UNKNOWN_ROUTE,
       status_code: '200',
     })
 
     expect(addSpy).toHaveBeenCalledOnce()
     expect(addSpy).toHaveBeenCalledWith(1, {
       method: 'GET',
-      route: TEST_ROUTE,
+      route: UNKNOWN_ROUTE,
       status_code: '200',
     })
-
-    recordSpy.mockRestore()
-    addSpy.mockRestore()
   })
 })
 
 describe('MetricsInterceptor — skips excluded paths', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('does not record metrics for /health and other excluded routes', async () => {
     const recordSpy = vi
       .spyOn(metricsModule.httpRequestDuration, 'record')
@@ -141,9 +150,6 @@ describe('MetricsInterceptor — skips excluded paths', () => {
     expect(result).toBe('ok')
     expect(recordSpy).not.toHaveBeenCalled()
     expect(addSpy).not.toHaveBeenCalled()
-
-    recordSpy.mockRestore()
-    addSpy.mockRestore()
   })
 })
 
@@ -183,5 +189,21 @@ describe('AppService — getHello() returns defaults when env vars are undefined
 
     expect(result.env).toBe('development')
     expect(result.app).toBe('myapp-hello')
+  })
+})
+
+describe('AppService — getHello() strips sensitive info in production', () => {
+  it('omits env and db fields when NODE_ENV is production', async () => {
+    const mockDb = createMockDatabaseService()
+    const mockConfig = createMapConfigService({ NODE_ENV: 'production', APP_NAME: 'myapp-hello' })
+    const service = new AppService(mockDb, mockConfig)
+
+    const result = await service.getHello()
+
+    expect(result).not.toHaveProperty('env')
+    expect(result).not.toHaveProperty('db')
+    expect(result).toHaveProperty('message')
+    expect(result).toHaveProperty('app')
+    expect(result).toHaveProperty('timestamp')
   })
 })
