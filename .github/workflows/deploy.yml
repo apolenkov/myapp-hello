@@ -69,7 +69,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-      security-events: write
     steps:
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
@@ -82,16 +81,10 @@ jobs:
         uses: aquasecurity/trivy-action@18f2510ee396bbf400402947e2f593d7b4b6e0d0 # v0.29
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          format: sarif
-          output: trivy-results.sarif
+          format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-
-      - name: Upload Trivy scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-results.sarif
+          exit-code: '1'
 
   # ── Deploy to dev (auto) ───────────────────────────────────────────────
   deploy-dev:
