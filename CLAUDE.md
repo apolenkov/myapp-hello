@@ -137,7 +137,7 @@ URI-based versioning via `app.enableVersioning({ type: VersioningType.URI, defau
 
 | Endpoint               | Response                                      |
 | ---------------------- | --------------------------------------------- |
-| `GET /health`          | `{ status: 'ok' }` (public, unversioned)      |
+| `GET /health`          | `{ status: 'ok', db: '...' }` (public, unversioned) |
 | `GET /v1`              | `{ message, env, app, db, ... }`              |
 | `GET /metrics`         | Prometheus text format (public, unversioned)  |
 | `GET /openapi.json`    | OpenAPI 3.0 spec (unversioned)                |
@@ -186,6 +186,7 @@ A `PreToolUse` hook (`secrets-guard.mjs`) enforces this automatically.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Grafana Cloud OTLP gateway URL                  |
 | `OTEL_EXPORTER_OTLP_HEADERS`  | `Authorization=Basic <base64(id:token)>`        |
 | `JWT_SECRET`                  | Auth token signing (Dokploy env var, not GH)    |
+| `CORS_ORIGIN`                 | Allowed CORS origin (required in production)    |
 
 ## Observability
 
