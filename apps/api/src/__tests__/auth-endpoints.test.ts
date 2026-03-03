@@ -19,6 +19,7 @@ const REGISTER_URL = '/v1/auth/register'
 const LOGIN_URL = '/v1/auth/login'
 const ITEMS_URL = '/v1/items'
 const VALID_PASSWORD = 'SecurePass123!'
+const LOGIN_USER = `login-test-${String(Date.now())}`
 
 interface StoredUser {
   id: string
@@ -91,6 +92,11 @@ beforeAll(async () => {
   )
   ctx.app.useGlobalFilters(new UnauthorizedExceptionFilter())
   await ctx.app.init()
+
+  // Pre-register user for login tests
+  await request(ctx.app.getHttpServer())
+    .post(REGISTER_URL)
+    .send({ username: LOGIN_USER, password: VALID_PASSWORD })
 })
 
 afterAll(async () => {
@@ -147,18 +153,10 @@ describe('POST /v1/auth/register', () => {
 })
 
 describe('POST /v1/auth/login', () => {
-  const loginUser = `login-test-${String(Date.now())}`
-
-  beforeAll(async () => {
-    await request(ctx.app.getHttpServer())
-      .post(REGISTER_URL)
-      .send({ username: loginUser, password: VALID_PASSWORD })
-  })
-
   it('should login with correct credentials and return access token', async () => {
     const res = await request(ctx.app.getHttpServer())
       .post(LOGIN_URL)
-      .send({ username: loginUser, password: VALID_PASSWORD })
+      .send({ username: LOGIN_USER, password: VALID_PASSWORD })
 
     expect(res.status).toBe(200)
     expect(res.body).toHaveProperty('accessToken')
@@ -168,7 +166,7 @@ describe('POST /v1/auth/login', () => {
   it('should return token with correct claims (sub, iss, aud)', async () => {
     const res = await request(ctx.app.getHttpServer())
       .post(LOGIN_URL)
-      .send({ username: loginUser, password: VALID_PASSWORD })
+      .send({ username: LOGIN_USER, password: VALID_PASSWORD })
 
     const jwtService = new JwtService({})
     const payload = jwtService.verify<{ sub: string; iss: string; aud: string }>(
@@ -184,7 +182,7 @@ describe('POST /v1/auth/login', () => {
   it('should return token that grants access to protected routes', async () => {
     const loginRes = await request(ctx.app.getHttpServer())
       .post(LOGIN_URL)
-      .send({ username: loginUser, password: VALID_PASSWORD })
+      .send({ username: LOGIN_USER, password: VALID_PASSWORD })
 
     const res = await request(ctx.app.getHttpServer())
       .get(ITEMS_URL)
@@ -196,7 +194,7 @@ describe('POST /v1/auth/login', () => {
   it('should return 401 for wrong password', async () => {
     const res = await request(ctx.app.getHttpServer())
       .post(LOGIN_URL)
-      .send({ username: loginUser, password: 'WrongPassword!' })
+      .send({ username: LOGIN_USER, password: 'WrongPassword!' })
 
     expect(res.status).toBe(401)
   })
