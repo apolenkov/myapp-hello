@@ -106,7 +106,7 @@ myapp-hello/                          # Turborepo root (npm workspaces)
   success via `workflow_run`, GHCR + cascade), `db-backup.yml` (PostgreSQL backups),
   `cleanup.yml` (weekly GHCR image prune), `uptime.yml` (15min health checks on all 3 envs)
 - **Git workflow:** Trunk-based (single main branch, short-lived feature branches)
-- **Environments:** dev (auto-deploy), staging (manual approval), production (manual approval)
+- **Environments:** dev (auto-deploy), staging (auto-deploy), production (manual approval)
 - **Domain:** apolenkov.duckdns.org (prod), Traefik reverse proxy with Let's Encrypt
 
 ### Dokploy API
@@ -135,20 +135,20 @@ URI-based versioning via `app.enableVersioning({ type: VersioningType.URI, defau
 
 ## API Contracts (must NOT change)
 
-| Endpoint               | Response                                            |
-| ---------------------- | --------------------------------------------------- |
-| `GET /health`          | `{ status: 'ok', db: '...' }` (public, unversioned) |
-| `GET /v1`              | `{ message, env, app, db, ... }`                    |
-| `GET /metrics`         | Prometheus text format (public, unversioned)        |
-| `GET /openapi.json`    | OpenAPI 3.0 spec (unversioned)                      |
-| `GET /docs`            | Swagger UI (unversioned)                            |
-| `POST /v1/items`       | Create item (auth, validated DTO)                   |
-| `GET /v1/items`        | Paginated list `{ data, total, page, limit }`       |
-| `GET /v1/items/:id`    | Single item by UUID (auth, owner-scoped)            |
-| `PATCH /v1/items/:id`  | Update item (auth, partial DTO)                     |
-| `DELETE /v1/items/:id` | Soft delete (auth, sets status=deleted)             |
-| Auth 401               | `{ error: 'Unauthorized' }`                         |
-| Rate limit             | `x-ratelimit-limit/remaining/reset` headers         |
+| Endpoint               | Response                                       |
+| ---------------------- | ---------------------------------------------- |
+| `GET /health`          | `{ status, db }` 200/503 (public, unversioned) |
+| `GET /v1`              | `{ message, env, app, db, ... }`               |
+| `GET /metrics`         | Prometheus text format (public, unversioned)   |
+| `GET /openapi.json`    | OpenAPI 3.0 spec (unversioned)                 |
+| `GET /docs`            | Swagger UI (unversioned)                       |
+| `POST /v1/items`       | Create item (auth, validated DTO)              |
+| `GET /v1/items`        | Paginated list `{ data, total, page, limit }`  |
+| `GET /v1/items/:id`    | Single item by UUID (auth, owner-scoped)       |
+| `PATCH /v1/items/:id`  | Update item (auth, partial DTO)                |
+| `DELETE /v1/items/:id` | Soft delete (auth, sets status=deleted)        |
+| Auth 401               | `{ error: 'Unauthorized' }`                    |
+| Rate limit             | `x-ratelimit-limit/remaining/reset` headers    |
 
 ## Sensitive Files (NEVER read)
 
