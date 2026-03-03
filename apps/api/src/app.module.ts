@@ -21,7 +21,10 @@ import { MetricsModule } from './metrics/metrics.module'
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         pinoHttp: {
-          genReqId: (): string => randomUUID(),
+          genReqId: (req: { headers?: Record<string, string | string[] | undefined> }): string => {
+            const header = req.headers?.['x-request-id']
+            return typeof header === 'string' ? header : randomUUID()
+          },
           customLogLevel: (
             _req: unknown,
             res: { statusCode: number },

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 
 import { DEFAULT_APP_NAME, DEFAULT_NODE_ENV, NODE_ENV_PRODUCTION } from './constants'
+import { DB_STATUS_ERROR } from './database/database.constants'
 import { DatabaseService } from './database/database.service'
 
 interface HelloResponse {
@@ -35,8 +36,9 @@ export class AppService {
     return response
   }
 
-  async getHealth(): Promise<{ status: string; db?: string }> {
+  async getHealth(): Promise<{ status: string; db: string }> {
     const dbStatus = await this.db.ping()
-    return { status: 'ok', db: dbStatus }
+    const isHealthy = dbStatus !== DB_STATUS_ERROR
+    return { status: isHealthy ? 'ok' : 'error', db: dbStatus }
   }
 }

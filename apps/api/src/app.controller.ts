@@ -1,6 +1,7 @@
-import { Controller, Get, Version, VERSION_NEUTRAL } from '@nestjs/common'
+import { Controller, Get, HttpStatus, Res, Version, VERSION_NEUTRAL } from '@nestjs/common'
 import { ApiOperation, ApiResponse } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
+import type { Response } from 'express'
 
 import { AppService } from './app.service'
 import { Public } from './auth/public.decorator'
@@ -15,8 +16,11 @@ export class AppController {
   @SkipThrottle()
   @ApiOperation({ summary: 'Health check' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
-  async getHealth(): Promise<{ status: string; db?: string }> {
-    return this.appService.getHealth()
+  @ApiResponse({ status: 503, description: 'Service is unhealthy (DB down)' })
+  async getHealth(@Res() res: Response): Promise<void> {
+    const health = await this.appService.getHealth()
+    const statusCode = health.status === 'ok' ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE
+    res.status(statusCode).json(health)
   }
 
   @Get()

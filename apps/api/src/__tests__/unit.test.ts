@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AppService } from '../app.service'
 import { JwtAuthGuard } from '../auth/auth.guard'
+import { DB_STATUS_ERROR, DB_STATUS_NOT_CONFIGURED } from '../database/database.constants'
 import * as metricsModule from '../metrics/instruments'
 import { MetricsInterceptor } from '../metrics/metrics.interceptor'
 import {
@@ -176,6 +177,38 @@ describe('SentryGlobalFilter — httpAdapter prevents applicationRef TypeError',
     expect(() => {
       filter.catch(new HttpException('Test error', HttpStatus.BAD_REQUEST), makeHost())
     }).toThrow(TypeError)
+  })
+})
+
+describe('AppService — getHealth() returns correct status', () => {
+  it('returns status ok with db connected', async () => {
+    const mockDb = createMockDatabaseService()
+    const mockConfig = createUndefinedConfigService()
+    const service = new AppService(mockDb, mockConfig)
+
+    const result = await service.getHealth()
+
+    expect(result).toEqual({ status: 'ok', db: 'connected' })
+  })
+
+  it('returns status error when db ping fails', async () => {
+    const mockDb = createMockDatabaseService(DB_STATUS_ERROR)
+    const mockConfig = createUndefinedConfigService()
+    const service = new AppService(mockDb, mockConfig)
+
+    const result = await service.getHealth()
+
+    expect(result).toEqual({ status: 'error', db: 'error' })
+  })
+
+  it('returns status ok when db is not configured', async () => {
+    const mockDb = createMockDatabaseService(DB_STATUS_NOT_CONFIGURED)
+    const mockConfig = createUndefinedConfigService()
+    const service = new AppService(mockDb, mockConfig)
+
+    const result = await service.getHealth()
+
+    expect(result).toEqual({ status: 'ok', db: 'not configured' })
   })
 })
 

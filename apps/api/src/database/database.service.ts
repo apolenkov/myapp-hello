@@ -38,6 +38,11 @@ export class DatabaseService implements OnModuleDestroy {
     return this.pool !== null
   }
 
+  /** Return the underlying pool for use by the migration runner. */
+  get rawPool(): Pool | null {
+    return this.pool
+  }
+
   /** Execute a SQL query, throwing if the database is not configured. */
   async query(text: string, params?: unknown[]): Promise<QueryResult> {
     if (!this.pool) {
