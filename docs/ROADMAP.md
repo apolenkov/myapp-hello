@@ -34,6 +34,18 @@ Post-migration infrastructure hardening and feature roadmap.
 - [x] New tests: expired JWT, wrong algorithm, pool shutdown timeout, parameterized queries
 - [x] Changelog generation (@semantic-release/changelog)
 - [x] Database Service query → ping rename
+- [x] Items CRUD module (DTOs, service, controller, 95 tests, 98.5% coverage)
+- [x] Import sorting (eslint-plugin-simple-import-sort)
+- [x] Magic strings extraction into constants (4 modules)
+- [x] IaC automation (setup-dokploy-apps.yml, setup-grafana-dashboards.yml, setup-github-secrets.sh)
+- [x] Health endpoint returns HTTP 503 when database unreachable
+- [x] Request correlation (x-request-id header propagation via pino genReqId)
+- [x] Auto-migrations on startup (advisory lock, transaction-scoped, forward-only)
+- [x] Auth endpoints (POST /v1/auth/register, POST /v1/auth/login with bcrypt + JWT)
+- [x] Users migration (004_create_users.sql — UUID PK, UNIQUE username, bcrypt hash)
+- [x] CORS configuration (enableCors with CORS_ORIGIN env var)
+- [x] Trivy security scanning in deploy pipeline (informational mode)
+- [x] Staging auto-deploy (removed manual approval gate)
 
 ## High Priority
 
@@ -53,15 +65,9 @@ Current passwords are weak (`*_secret_123`). Requires manual Dokploy UI work:
 Add end-to-end tests against a running instance:
 
 - Health check flow
-- Auth flow (login → token → protected route)
+- Auth flow (register → login → token → protected route)
 - Rate limiting behavior
 - Metrics endpoint format
-
-## Low Priority
-
-### CORS Configuration
-
-Currently handled by Traefik. If API becomes public-facing, add `enableCors()` in `main.ts`.
 
 ### Load Testing
 

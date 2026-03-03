@@ -32,7 +32,7 @@ flowchart TD
     build --> ghcr[Push to GHCR\nSHA tag + latest]
     ghcr --> dev_env[Deploy to Dev\nauto]
     dev_env --> health_dev[Health Check]
-    health_dev --> staging[Deploy to Staging\nmanual approval]
+    health_dev --> staging[Deploy to Staging\nauto]
     staging --> health_stg[Health Check]
     health_stg --> prod[Deploy to Production\nmanual approval]
     prod --> health_prod[Health Check]
@@ -72,7 +72,7 @@ flowchart TD
 | Environment | External Port | Internal Port | URL                                     | Approval |
 | ----------- | ------------- | ------------- | --------------------------------------- | -------- |
 | Production  | `:3013`       | `:3001`       | `https://apolenkov.duckdns.org`         | Manual   |
-| Staging     | `:3012`       | `:3001`       | `https://staging.apolenkov.duckdns.org` | Manual   |
+| Staging     | `:3012`       | `:3001`       | `https://staging.apolenkov.duckdns.org` | Auto     |
 | Dev         | `:3011`       | `:3001`       | `https://dev.apolenkov.duckdns.org`     | Auto     |
 
 All environments deploy from `main` via artifact promotion — the same Docker image (tagged with the

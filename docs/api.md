@@ -20,25 +20,37 @@ by Traefik/Dokploy monitoring.
 
 **Rate limited:** No (`@SkipThrottle()` — health checks must not be rejected)
 
-**Response — 200 OK**
+**Response — 200 OK** (database connected)
 
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "db": "connected"
 }
 ```
 
-| Field  | Type   | Description                               |
-| ------ | ------ | ----------------------------------------- |
-| status | string | Always `"ok"` when the service is healthy |
+**Response — 503 Service Unavailable** (database unreachable)
+
+```json
+{
+  "status": "error",
+  "db": "error"
+}
+```
+
+| Field  | Type   | Description                                                         |
+| ------ | ------ | ------------------------------------------------------------------- |
+| status | string | `"ok"` when healthy, `"error"` when degraded                        |
+| db     | string | `"connected"`, `"error"`, or `"not configured"` (no `DATABASE_URL`) |
 
 The health endpoint intentionally omits environment details (`env`, `app`) to avoid leaking internal
-configuration to unauthenticated callers.
+configuration to unauthenticated callers. Returns HTTP 503 when the database is unreachable so that
+load balancers and orchestrators can detect degraded instances.
 
 **Example:**
 
 ```bash
-curl https://apolenkov.duckdns.org/health
+curl -w "\n%{http_code}" https://apolenkov.duckdns.org/health
 ```
 
 ### GET /v1
@@ -310,8 +322,86 @@ export class ExampleController {
 
 ### Obtaining a Token
 
-The built-in routes do not issue tokens. Implement a `/auth/login` endpoint in your application that
-uses `JwtService.sign(payload)` and returns the token to the client.
+#### POST /v1/auth/register — Register a new user
+
+Creates a new user account and returns a JWT access token.
+
+**Auth required:** No (`@Public()`)
+
+```bash
+curl -X POST https://apolenkov.duckdns.org/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "johndoe", "password": "SecurePass123!"}'
+```
+
+**Request body:**
+
+| Field    | Type   | Required | Constraints |
+| -------- | ------ | -------- | ----------- |
+| username | string | Yes      | 3-100 chars |
+| password | string | Yes      | 8-128 chars |
+
+**Response — 201 Created**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+**Error responses:**
+
+| Status | Body                                         | Cause              |
+| ------ | -------------------------------------------- | ------------------ |
+| 400    | `{"message": [...], "error": "Bad Request"}` | Validation error   |
+| 409    | `{"message": "Username already taken", ...}` | Duplicate username |
+
+#### POST /v1/auth/login — Authenticate
+
+Verifies credentials and returns a JWT access token.
+
+**Auth required:** No (`@Public()`)
+
+```bash
+curl -X POST https://apolenkov.duckdns.org/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "johndoe", "password": "SecurePass123!"}'
+```
+
+**Request body:**
+
+| Field    | Type   | Required |
+| -------- | ------ | -------- |
+| username | string | Yes      |
+| password | string | Yes      |
+
+**Response — 200 OK**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+**Error responses:**
+
+| Status | Body                                               | Cause             |
+| ------ | -------------------------------------------------- | ----------------- |
+| 400    | `{"message": [...], "error": "Bad Request"}`       | Missing fields    |
+| 401    | `{"message": "Invalid username or password", ...}` | Wrong credentials |
+
+#### Token Details
+
+Tokens are signed with HS256 using the `JWT_SECRET` environment variable.
+
+| Claim | Value                  |
+| ----- | ---------------------- |
+| `sub` | User UUID              |
+| `iss` | `myapp-hello`          |
+| `aud` | `myapp-hello-api`      |
+| `exp` | 24 hours from issuance |
+
+Passwords are hashed with bcrypt (12 rounds) before storage.
 
 ### Request Format
 
@@ -375,11 +465,14 @@ flowchart TD
     auth_guard -->|401 if invalid| client
     auth_guard -->|@Public routes bypass| router{Route match}
     router -->|GET /v1| ctrl_root[AppController\nDB status check]
-    router -->|GET /health| ctrl_health[AppController\nHealth check]
+    router -->|GET /health| ctrl_health[AppController\nHealth 200/503]
     router -->|GET /metrics| metrics_ctrl[Metrics handler\nPrometheus text format]
     router -->|GET /docs| swagger[Swagger UI]
     router -->|GET /openapi.json| openapi[OpenAPI spec]
+    router -->|POST /v1/auth/*| ctrl_auth[AuthController\nRegister + Login]
+    router -->|/v1/items/*| ctrl_items[ItemsController\nCRUD]
     router -->|protected route| ctrl_protected[Protected controller]
+    ctrl_auth --> pg
     ctrl_root --> interceptor[MetricsInterceptor\nDuration + count]
     ctrl_health --> interceptor
     ctrl_protected --> interceptor
@@ -400,8 +493,12 @@ All error responses follow a consistent JSON format:
 
 | Status | Meaning                                                  |
 | ------ | -------------------------------------------------------- |
-| 401    | Missing or invalid JWT token on a protected route        |
+| 400    | Validation error (missing or invalid fields in body)     |
+| 401    | Missing/invalid JWT or wrong credentials on login        |
+| 404    | Resource not found (items)                               |
+| 409    | Conflict (duplicate username on registration)            |
 | 429    | Rate limit exceeded                                      |
+| 503    | Service degraded (database unreachable, on /health)      |
 | 500    | Unhandled server error (logged at `error` level by pino) |
 
 ## Logging

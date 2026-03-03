@@ -135,20 +135,22 @@ URI-based versioning via `app.enableVersioning({ type: VersioningType.URI, defau
 
 ## API Contracts (must NOT change)
 
-| Endpoint               | Response                                       |
-| ---------------------- | ---------------------------------------------- |
-| `GET /health`          | `{ status, db }` 200/503 (public, unversioned) |
-| `GET /v1`              | `{ message, env, app, db, ... }`               |
-| `GET /metrics`         | Prometheus text format (public, unversioned)   |
-| `GET /openapi.json`    | OpenAPI 3.0 spec (unversioned)                 |
-| `GET /docs`            | Swagger UI (unversioned)                       |
-| `POST /v1/items`       | Create item (auth, validated DTO)              |
-| `GET /v1/items`        | Paginated list `{ data, total, page, limit }`  |
-| `GET /v1/items/:id`    | Single item by UUID (auth, owner-scoped)       |
-| `PATCH /v1/items/:id`  | Update item (auth, partial DTO)                |
-| `DELETE /v1/items/:id` | Soft delete (auth, sets status=deleted)        |
-| Auth 401               | `{ error: 'Unauthorized' }`                    |
-| Rate limit             | `x-ratelimit-limit/remaining/reset` headers    |
+| Endpoint                 | Response                                       |
+| ------------------------ | ---------------------------------------------- |
+| `GET /health`            | `{ status, db }` 200/503 (public, unversioned) |
+| `GET /v1`                | `{ message, env, app, db, ... }`               |
+| `GET /metrics`           | Prometheus text format (public, unversioned)   |
+| `GET /openapi.json`      | OpenAPI 3.0 spec (unversioned)                 |
+| `GET /docs`              | Swagger UI (unversioned)                       |
+| `POST /v1/items`         | Create item (auth, validated DTO)              |
+| `GET /v1/items`          | Paginated list `{ data, total, page, limit }`  |
+| `GET /v1/items/:id`      | Single item by UUID (auth, owner-scoped)       |
+| `PATCH /v1/items/:id`    | Update item (auth, partial DTO)                |
+| `DELETE /v1/items/:id`   | Soft delete (auth, sets status=deleted)        |
+| `POST /v1/auth/register` | `{ accessToken }` 201 (public, validated DTO)  |
+| `POST /v1/auth/login`    | `{ accessToken }` 200 (public, validated DTO)  |
+| Auth 401                 | `{ error: 'Unauthorized' }`                    |
+| Rate limit               | `x-ratelimit-limit/remaining/reset` headers    |
 
 ## Sensitive Files (NEVER read)
 
