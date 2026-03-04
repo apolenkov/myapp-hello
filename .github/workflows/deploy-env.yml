@@ -47,6 +47,9 @@ jobs:
     name: Deploy → ${{ inputs.environment }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    env:
+      # Map "production" environment to "prod" label to match Grafana dashboards
+      DEPLOY_ENV: ${{ inputs.environment == 'production' && 'prod' || inputs.environment }}
     concurrency:
       group: deploy-${{ inputs.environment }}-${{ github.ref }}
       cancel-in-progress: false
@@ -113,7 +116,7 @@ jobs:
           GRAFANA_TEMPO_DATASOURCE_UID: ${{ secrets.GRAFANA_TEMPO_DATASOURCE_UID }}
           SERVICE_NAME: myapp-hello
           SERVICE_NAMESPACE: my-application-group
-          DEPLOYMENT_ENVIRONMENT: production
+          DEPLOYMENT_ENVIRONMENT: ${{ env.DEPLOY_ENV }}
           LOOKBACK: 1h
           LIMIT: 20
         run: |
@@ -137,8 +140,8 @@ jobs:
           DEPLOY_SHA: ${{ github.sha }}
         run: |
           if [ -n "$GRAFANA_URL" ] && [ -n "$GRAFANA_API_TOKEN" ]; then
-            BODY=$(jq -nc --arg text "Deploy $DEPLOY_SHA to production" \
-              '{"text":$text,"tags":["deploy","production"]}')
+            BODY=$(jq -nc --arg text "Deploy $DEPLOY_SHA to ${{ env.DEPLOY_ENV }}" \
+              '{"text":$text,"tags":["deploy","${{ env.DEPLOY_ENV }}"]}')
             curl -sf -X POST "$GRAFANA_URL/api/annotations" \
               -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
               -H "Content-Type: application/json" \
