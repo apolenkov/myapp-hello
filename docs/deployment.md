@@ -98,6 +98,24 @@ flowchart LR
     I --> J[Trace check + annotation\nnon-blocking]
 ```
 
+### Governance and Security Controls
+
+This diagram shows the repository-level controls that guard the deployment path.
+
+<!-- prettier-ignore -->
+```mermaid
+%%{init: {theme: 'neutral'}}%%
+flowchart LR
+    Dev[Developer change] --> PR[Pull request to main]
+    PR --> BR[Branch protection\nstrict checks + admins enforced\nconversation resolution required]
+    BR --> CI[CI required checks\nQuality Gates + Test]
+    CI --> Merge[Merge to main]
+    Merge --> AP[Actions policy\nselected allowlist + SHA pinning]
+    AP --> Deploy[Deploy workflow]
+    Deploy --> Env[GitHub Environments\nproduction required reviewer\nno admin bypass]
+    Env --> Prod[Production deploy]
+```
+
 ## Environments
 
 | Environment | External Port | Internal Port | URL                                     | Approval |
@@ -152,6 +170,24 @@ curl -sf -X POST \
 ```
 
 ## Rollback
+
+### Incident and Rollback Flow
+
+Use this flow when post-deploy health checks fail or incident signals appear after promotion.
+
+<!-- prettier-ignore -->
+```mermaid
+%%{init: {theme: 'neutral'}}%%
+flowchart LR
+    Detect[Detect incident\nhealth/traces/errors] --> Freeze[Freeze promotion\nstop further approvals]
+    Freeze --> Assess[Assess blast radius\nselect last known good SHA]
+    Assess --> Rollback[Rollback by SHA\nDokploy redeploy or git revert]
+    Rollback --> Verify[Verify health + traces + logs]
+    Verify --> Decide{Stable?}
+    Decide -->|Yes| Close[Close incident\ncreate postmortem tasks]
+    Decide -->|No| Escalate[Escalate\nnext rollback candidate]
+    Escalate --> Rollback
+```
 
 ### Via Dokploy UI
 
