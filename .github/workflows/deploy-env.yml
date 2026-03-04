@@ -68,7 +68,7 @@ jobs:
             --arg id "${{ secrets.DOKPLOY_SERVICE_ID }}" \
             --arg img "$IMAGE_TAG" \
             '{"json":{"applicationId":$id,"sourceType":"docker","dockerImage":$img}}')
-          curl -sf -X POST \
+          curl -s -X POST \
             "${{ secrets.DOKPLOY_URL }}/api/trpc/application.update" \
             -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
@@ -78,7 +78,7 @@ jobs:
         run: |
           BODY=$(jq -nc --arg id "${{ secrets.DOKPLOY_SERVICE_ID }}" \
             '{"json":{"applicationId":$id}}')
-          curl -sf -X POST \
+          curl -s -X POST \
             "${{ secrets.DOKPLOY_URL }}/api/trpc/application.deploy" \
             -H "x-api-key: ${{ secrets.DOKPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
