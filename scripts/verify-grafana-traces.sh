@@ -34,12 +34,15 @@ BASIC_AUTH=""
 MODE="direct"
 
 if [ -n "${GRAFANA_TEMPO_READ_TOKEN:-}" ]; then
+  if [ -n "${GRAFANA_TEMPO_USER:-}" ]; then
+    BASIC_AUTH="${GRAFANA_TEMPO_USER}:${GRAFANA_TEMPO_READ_TOKEN}"
+  fi
+
   if [[ "$GRAFANA_TEMPO_READ_TOKEN" =~ ^glc_ ]]; then
     MODE="bearer"
     AUTH_HEADER="Authorization: Bearer ${GRAFANA_TEMPO_READ_TOKEN}"
-  elif [ -n "${GRAFANA_TEMPO_USER:-}" ]; then
+  elif [ -n "$BASIC_AUTH" ]; then
     MODE="direct-basic"
-    BASIC_AUTH="${GRAFANA_TEMPO_USER}:${GRAFANA_TEMPO_READ_TOKEN}"
   fi
 fi
 
@@ -81,6 +84,8 @@ curl_json() {
   local url="$1"
   if [ "$MODE" = "direct-basic" ]; then
     curl -fsS -u "$BASIC_AUTH" "$url"
+  elif [ "$MODE" = "bearer" ] && [ -n "$BASIC_AUTH" ]; then
+    curl -fsS -H "$AUTH_HEADER" "$url" || curl -fsS -u "$BASIC_AUTH" "$url"
   else
     curl -fsS -H "$AUTH_HEADER" "$url"
   fi
@@ -90,6 +95,15 @@ curl_json_g() {
   local url="$1"
   local q="$2"
   if [ "$MODE" = "direct-basic" ]; then
+    curl -fsS -u "$BASIC_AUTH" -G "$url" \
+      --data-urlencode "q=$q" \
+      --data-urlencode "since=$LOOKBACK" \
+      --data-urlencode "limit=$LIMIT"
+  elif [ "$MODE" = "bearer" ] && [ -n "$BASIC_AUTH" ]; then
+    curl -fsS -H "$AUTH_HEADER" -G "$url" \
+      --data-urlencode "q=$q" \
+      --data-urlencode "since=$LOOKBACK" \
+      --data-urlencode "limit=$LIMIT" || \
     curl -fsS -u "$BASIC_AUTH" -G "$url" \
       --data-urlencode "q=$q" \
       --data-urlencode "since=$LOOKBACK" \
