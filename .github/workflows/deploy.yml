@@ -104,8 +104,8 @@ jobs:
     secrets:
       DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
       DOKPLOY_TOKEN: ${{ secrets.DOKPLOY_TOKEN }}
-      DOKPLOY_SERVICE_ID: ${{ secrets.DOKPLOY_SERVICE_ID_DEV }}
-      APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL_DEV }}
+      DOKPLOY_SERVICE_ID: ${{ secrets.DOKPLOY_SERVICE_ID }}
+      APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL }}
 
   # ── Deploy to staging (manual approval via GitHub Environment) ─────────
   deploy-staging:
@@ -116,8 +116,8 @@ jobs:
     secrets:
       DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
       DOKPLOY_TOKEN: ${{ secrets.DOKPLOY_TOKEN }}
-      DOKPLOY_SERVICE_ID: ${{ secrets.DOKPLOY_SERVICE_ID_STAGING }}
-      APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL_STAGING }}
+      DOKPLOY_SERVICE_ID: ${{ secrets.DOKPLOY_SERVICE_ID }}
+      APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL }}
 
   # ── Deploy to production (manual approval via GitHub Environment) ──────
   deploy-production:
@@ -129,7 +129,7 @@ jobs:
     secrets:
       DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
       DOKPLOY_TOKEN: ${{ secrets.DOKPLOY_TOKEN }}
-      DOKPLOY_SERVICE_ID: ${{ secrets.DOKPLOY_SERVICE_ID_PROD }}
+      DOKPLOY_SERVICE_ID: ${{ secrets.DOKPLOY_SERVICE_ID }}
       APP_PUBLIC_URL: ${{ secrets.APP_PUBLIC_URL }}
       GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
       GRAFANA_API_TOKEN: ${{ secrets.GRAFANA_API_TOKEN }}
