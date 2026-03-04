@@ -8,8 +8,9 @@ procedures, SSL certificate management, and GitHub Secrets setup.
 The pipeline is split into five workflows:
 
 - **`ci.yml`** — runs on every PR to `main` and on push to `main`. Runs quality gates and tests
-- **`deploy.yml`** — runs on push to `main`. Builds a Docker image, pushes to GHCR, and deploys
-  the same image through dev → staging → production (artifact promotion)
+- **`deploy.yml`** — runs after successful `ci.yml` on `main` (`workflow_run`) or via
+  `workflow_dispatch`. Builds a Docker image, runs Trivy scan for the exact SHA tag being deployed,
+  then promotes the same image through dev → staging → production (artifact promotion)
 - **`db-backup.yml`** — daily PostgreSQL backups (03:00 UTC) to Yandex S3 via Dokploy API. Also
   supports manual `backup-now` and `setup-schedules` actions
 - **`uptime.yml`** — health checks every 15 minutes for all 3 environments
@@ -27,10 +28,11 @@ flowchart TD
     ts & lint & fmt --> test[Tests + Coverage]
     test --> codecov[Upload to Codecov]
     test --> merge[Merge to main]
-    merge --> deploy[deploy.yml]
+    merge --> deploy[deploy.yml\nworkflow_run after CI success]
     deploy --> build[Build Docker Image]
     build --> ghcr[Push to GHCR\nSHA tag + latest]
-    ghcr --> dev_env[Deploy to Dev\nauto]
+    ghcr --> trivy[Trivy scan\nexact SHA image]
+    trivy --> dev_env[Deploy to Dev\nauto]
     dev_env --> health_dev[Health Check]
     health_dev --> staging[Deploy to Staging\nauto]
     staging --> health_stg[Health Check]
@@ -54,18 +56,47 @@ flowchart TD
 
 ### deploy.yml Steps
 
-| Step                      | Tool             | Failure behavior  |
-| ------------------------- | ---------------- | ----------------- |
-| Build Docker image        | `docker build`   | Blocks deploy     |
-| Push to GHCR              | `docker push`    | Blocks deploy     |
-| Deploy to dev             | Dokploy REST API | Blocks promotion  |
-| Health check (dev)        | `curl /health`   | Blocks promotion  |
-| Deploy to staging         | Dokploy REST API | Requires approval |
-| Health check (staging)    | `curl /health`   | Blocks promotion  |
-| Deploy to production      | Dokploy REST API | Requires approval |
-| Health check (production) | `curl /health`   | Blocks pipeline   |
-| Verify /metrics           | `curl /metrics`  | Non-blocking      |
-| Grafana annotation        | Grafana API      | Non-blocking      |
+| Step                      | Tool                       | Failure behavior  |
+| ------------------------- | -------------------------- | ----------------- |
+| Build Docker image        | `docker build`             | Blocks deploy     |
+| Push to GHCR              | `docker push`              | Blocks deploy     |
+| Trivy scan (exact SHA)    | `trivy-action`             | Blocks promotion  |
+| Deploy to dev             | Dokploy REST API           | Blocks promotion  |
+| Health check (dev)        | `curl /health`             | Blocks promotion  |
+| Deploy to staging         | Dokploy REST API           | Auto              |
+| Health check (staging)    | `curl /health`             | Blocks promotion  |
+| Deploy to production      | Dokploy REST API           | Requires approval |
+| Health check (production) | `curl /health`             | Blocks pipeline   |
+| Verify traces (Tempo)     | `verify-grafana-traces.sh` | Non-blocking      |
+| Grafana annotation        | Grafana API                | Non-blocking      |
+
+## CI/CD Hardening (P0)
+
+Applied baseline controls (March 2026):
+
+- `deploy-dev` now depends on `scan-image`, so vulnerabilities in scan stage block promotion.
+- Trivy now scans `ghcr.io/<owner>/myapp-api:<short-sha>` (same immutable image tag used for deploy),
+  not `latest`.
+- `main` branch protection hardened: `enforce_admins=true`,
+  `required_conversation_resolution=true`.
+- GitHub Actions policy hardened: `allowed_actions=selected`, `sha_pinning_required=true`, and
+  explicit allowlist of pinned actions used by this repository.
+- `production` environment gate hardened: `can_admins_bypass=false`.
+
+<!-- prettier-ignore -->
+```mermaid
+%%{init: {theme: 'neutral'}}%%
+flowchart LR
+    A[Build image\nSHA + latest] --> B[Trivy scan\nexact SHA tag]
+    B --> C[Deploy dev]
+    C --> D[Health dev]
+    D --> E[Deploy staging]
+    E --> F[Health staging]
+    F --> G[Production approval gate]
+    G --> H[Deploy production]
+    H --> I[Health production]
+    I --> J[Trace check + annotation\nnon-blocking]
+```
 
 ## Environments
 
@@ -254,10 +285,10 @@ be removed on the VPS. Promtail and Alloy will pick up config changes on restart
 
 ### Post-Deploy Verification
 
-The CI/CD pipeline includes two non-blocking post-deploy steps:
+The CI/CD pipeline includes two non-blocking production post-deploy steps:
 
-1. **Verify /metrics endpoint** — checks that the application exposes Prometheus metrics
-2. **Create Grafana deploy annotation** — marks the deploy time on Grafana dashboards for
+1. **Verify traces in Grafana Tempo** — checks recent traces after deploy
+2. **Create Grafana deploy annotation** — marks deploy time on Grafana dashboards for
    correlation with metrics/logs changes
 
 Both steps use `continue-on-error: true` and do not block the pipeline.
@@ -291,11 +322,11 @@ Find `GRAFANA_ORG_ID` and `LOKI_USER_ID` in **Grafana Cloud > My Account > Stack
 
 ### Access
 
-| Service       | URL                                 | Access            |
-| ------------- | ----------------------------------- | ----------------- |
-| Grafana Cloud | `https://<stack>.grafana.net`       | Grafana Cloud SSO |
-| Promtail UI   | `http://185.239.48.55:9080/targets` | Internal only     |
-| Alloy UI      | `http://185.239.48.55:12345`        | Internal only     |
+| Service       | URL                                 | Access                                             |
+| ------------- | ----------------------------------- | -------------------------------------------------- |
+| Grafana Cloud | `https://<stack>.grafana.net`       | Grafana Cloud SSO                                  |
+| Promtail UI   | `http://185.239.48.55:9080/targets` | Host-local/internal (blocked from public Internet) |
+| Alloy UI      | `http://185.239.48.55:12345`        | Host-local/internal (blocked from public Internet) |
 
 Dashboards, alerts, and retention are managed in the **Grafana Cloud web interface**. For details on
 the observability architecture and adding new services, see the
